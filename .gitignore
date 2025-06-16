@@ -1,0 +1,5 @@
+*.o
+Debug/*
+*.appimage
+*.bin
+*.out
