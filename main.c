@@ -111,6 +111,7 @@ static void init_adc(){
 
     DebugP_log("Got ADC handle\r\n");
 
+    // These should apparently be 4 byte aligned
     __aligned(4) ADCBuf_dataFormat datafmt = {0};
     __aligned(4) ADCBuf_RxChanConf chanconf = {0};
     datafmt.adcOutFormat = 1;
@@ -270,11 +271,27 @@ static void init_task(void *args){
     ret = MMWave_config(gMmwHandle, &ctrlCfg, &err);
     if (ret != 0){
         Mmw_printErr("Failed to configure", err);
+        goto end;
     }
 
-    // MMwave_start
-    // ... 
-    // MMWave_stop
+    MMWave_CalibrationCfg calibCfg;
+    memset(calibCfg, 0, sizeof(calibCfg));
+    calibCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
+    calibCfg.u.chirpCalibrationCfg.enableCalibration = 0;
+    calibCfg.u.chirpCalibrationCfg.enablePeriodicity = 0;
+    calibCfg.u.chirpCalibrationCfg.periodicTimeInFrames = 0;
+    calibCfg.u.chirpCalibrationCfg.reportEn = 1;
+
+    ret = MMWave_start(gMmwHandle, &calibCfg, &err);
+    if (ret !=0){
+        Mmw_printErr("Failed to start", err);
+        goto end;
+    }
+    ClockP_sleep(2);
+    ret = MMWave_stop(gMmwHandle, &err);
+    if(ret != 0){
+        Mmw_printErr("Failed to stop", err);
+    }
 
 end:
   // sit here
