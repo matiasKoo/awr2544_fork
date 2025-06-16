@@ -3,3 +3,4 @@ Debug/*
 *.appimage
 *.bin
 *.out
+*.rprc
