@@ -71,7 +71,7 @@ ADCBuf_Handle gADCHandle;
 
 void Mmw_printErr(const char *s, int32_t err){
     int16_t mmwErr;
-    int32_t subErr;
+    int16_t subErr;
     MMWave_ErrorLevel errLvl;
 
     MMWave_decodeError(err, &errLvl, &mmwErr, &subErr);
