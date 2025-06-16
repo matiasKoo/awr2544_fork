@@ -254,6 +254,24 @@ static void init_task(void *args){
       Mmw_printErr("Failed to open", err);
     }
 
+    MMWave_CtrlCfg ctrlCfg;
+    memset(&ctrlCfg, 0, sizeof(ctrlCfg));
+    ctrlCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
+    ctrlCfg.enableProgFilter = 0;
+    ctrlCfg.numOfPhaseShiftChirps[0] = 768U;
+    ctrlCfg.u.frameCfg[0].profileHandle[0] = gMmwHandle;
+    ctrlCfg.u.frameCfg[0].frameCfg.chirpStartIdx = 0;
+    ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 10;
+    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 10000;
+    ctrlCfg.u.frameCfg[0].frameCfg.numFrames = 0;
+    ctrlCfg.u.frameCfg[0].frameCfg.triggerSelect = 1;
+    ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
+
+    ret = MMWave_config(gMmwHandle, &ctrlCfg, &err);
+    if (ret != 0){
+        Mmw_printErr("Failed to configure", err);
+    }
+
     // MMwave_start
     // ... 
     // MMWave_stop
