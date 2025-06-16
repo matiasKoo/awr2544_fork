@@ -116,7 +116,7 @@ static void init_adc(){
     __aligned(4) ADCBuf_RxChanConf chanconf = {0};
     datafmt.adcOutFormat = 1;
     datafmt.sampleInterleave = 0;
-    datafmt.channelInterleave = 0;
+    datafmt.channelInterleave = 1; // apparently non-interleaved might be the only valid option for AWR2544
     chanconf.channel = 0;
 
     ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
@@ -275,7 +275,7 @@ static void init_task(void *args){
     }
 
     MMWave_CalibrationCfg calibCfg;
-    memset(calibCfg, 0, sizeof(calibCfg));
+    memset(&calibCfg, 0, sizeof(calibCfg));
     calibCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
     calibCfg.u.chirpCalibrationCfg.enableCalibration = 0;
     calibCfg.u.chirpCalibrationCfg.enablePeriodicity = 0;
