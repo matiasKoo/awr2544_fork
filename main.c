@@ -51,7 +51,7 @@
 #include <ti/control/mmwavelink/mmwavelink.h>
 #include <ti/control/mmwavelink/include/rl_sensor.h>
 #define MAIN_TASK_PRI  (configMAX_PRIORITIES-2)
-#define EXEC_TASK_PRI  (configMAX_PRIORITIES-1)
+#define EXEC_TASK_PRI  (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
 
 #define EXEC_TASK_SIZE (1024U/sizeof(configSTACK_DEPTH_TYPE))
 #define MAIN_TASK_SIZE (16384U/sizeof(configSTACK_DEPTH_TYPE)-EXEC_TASK_SIZE)
@@ -67,6 +67,7 @@ TaskHandle_t gExecTask;
 
 MMWave_Handle gMmwHandle;
 ADCBuf_Handle gADCHandle;
+MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
 
 void Mmw_printErr(const char *s, int32_t err){
@@ -255,15 +256,36 @@ static void init_task(void *args){
       Mmw_printErr("Failed to open", err);
     }
 
+    // just add 1 profile
+    rlProfileCfg_t profileCfg;
+    memset(&profileCfg, 0, sizeof(profileCfg));
+    profileCfg.profileId = 0;
+    profileCfg.pfCalLutUpdate |= 0b11;
+    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
+    profileCfg.idleTimeConst = 0;
+    profileCfg.adcStartTimeConst = 0;
+    profileCfg.rampEndTime = 50000;
+    profileCfg.txStartTime = 0;
+    profileCfg.numAdcSamples = 2;
+    profileCfg.digOutSampleRate = 2000;
+    profileCfg.rxGain |= 32;
+    profileCfg.rxGain |= 128;
+
+    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, &err);
+
+
     MMWave_CtrlCfg ctrlCfg;
     memset(&ctrlCfg, 0, sizeof(ctrlCfg));
     ctrlCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
-    ctrlCfg.enableProgFilter = 0;
     ctrlCfg.numOfPhaseShiftChirps[0] = 768U;
-    ctrlCfg.u.frameCfg[0].profileHandle[0] = gMmwHandle;
+    ctrlCfg.u.frameCfg[0].profileHandle[0] = gMmwProfiles[0];
+    ctrlCfg.u.frameCfg[0].profileHandle[1] = NULL;
+    ctrlCfg.u.frameCfg[0].profileHandle[2] = NULL;
+    ctrlCfg.u.frameCfg[0].profileHandle[3] = NULL;
+
     ctrlCfg.u.frameCfg[0].frameCfg.chirpStartIdx = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 10;
-    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 10000;
+    ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 0;
+    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 300000;
     ctrlCfg.u.frameCfg[0].frameCfg.numFrames = 0;
     ctrlCfg.u.frameCfg[0].frameCfg.triggerSelect = 1;
     ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
@@ -273,6 +295,8 @@ static void init_task(void *args){
         Mmw_printErr("Failed to configure", err);
         goto end;
     }
+
+    DebugP_log("Configured!\r\n");
 
     MMWave_CalibrationCfg calibCfg;
     memset(&calibCfg, 0, sizeof(calibCfg));
