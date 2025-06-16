@@ -4,8 +4,8 @@
         <cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1677584938">
             <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1677584938" moduleId="org.eclipse.cdt.core.settings" name="Debug">
                 <macros>
-                    <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AWR2544_INSTALL_DIR}"/>
                     <stringMacro name="TI_ROOT" type="VALUE_PATH_ANY" value="/home/j/ti"/>
+                    <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AWR2544_INSTALL_DIR}"/>
                 </macros>
                 <externalSettings/>
                 <extensions>
@@ -28,8 +28,8 @@
                                 <listOptionValue value="CCS_MBS_VERSION=70.0.0"/>
                                 <listOptionValue value="RUNTIME_SUPPORT_LIBRARY="/>
                                 <listOptionValue value="OUTPUT_TYPE=executable"/>
-                                <listOptionValue value="PRODUCTS=com.ti.MMWAVE_MCUPLUS_SDK:4.7.0.01;sysconfig:1.24.0;com.ti.MCU_PLUS_SDK_AWR2544:10.0.0.07;"/>
-                                <listOptionValue value="PRODUCT_MACRO_IMPORTS={&quot;sysconfig&quot;:[&quot;${SYSCONFIG_TOOL_INCLUDE_PATH}&quot;,&quot;${SYSCONFIG_TOOL_LIBRARY_PATH}&quot;,&quot;${SYSCONFIG_TOOL_LIBRARIES}&quot;,&quot;${SYSCONFIG_TOOL_SYMBOLS}&quot;,&quot;${SYSCONFIG_TOOL_SYSCONFIG_MANIFEST}&quot;],&quot;com.ti.MCU_PLUS_SDK_AWR2544&quot;:[&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_INCLUDE_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_LIBRARY_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_LIBRARIES}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_SYMBOLS}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_SYSCONFIG_MANIFEST}&quot;],&quot;com.ti.MMWAVE_MCUPLUS_SDK&quot;:[&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_INCLUDE_PATH}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARY_PATH}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARIES}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_SYMBOLS}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_SYSCONFIG_MANIFEST}&quot;]}"/>
+                                <listOptionValue value="PRODUCTS=com.ti.MMWAVE_MCUPLUS_SDK:4.6.1.02;sysconfig:1.24.0;com.ti.MCU_PLUS_SDK_AWR2544:9.1.0.05;"/>
+                                <listOptionValue value="PRODUCT_MACRO_IMPORTS={&quot;sysconfig&quot;:[&quot;${SYSCONFIG_TOOL_INCLUDE_PATH}&quot;,&quot;${SYSCONFIG_TOOL_LIBRARY_PATH}&quot;,&quot;${SYSCONFIG_TOOL_LIBRARIES}&quot;,&quot;${SYSCONFIG_TOOL_SYMBOLS}&quot;,&quot;${SYSCONFIG_TOOL_SYSCONFIG_MANIFEST}&quot;],&quot;com.ti.MMWAVE_MCUPLUS_SDK&quot;:[&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_INCLUDE_PATH}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARY_PATH}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARIES}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_SYMBOLS}&quot;,&quot;${COM_TI_MMWAVE_MCUPLUS_SDK_SYSCONFIG_MANIFEST}&quot;],&quot;com.ti.MCU_PLUS_SDK_AWR2544&quot;:[&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_INCLUDE_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_LIBRARY_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_LIBRARIES}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_SYMBOLS}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AWR2544_SYSCONFIG_MANIFEST}&quot;]}"/>
                             </option>
                             <option id="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION.1644897932" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION" value="TICLANG_3.2.1.LTS" valueType="string"/>
                             <targetPlatform id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.targetPlatformDebug.1942049722" name="Platform" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.targetPlatformDebug"/>
@@ -43,8 +43,7 @@
                                     <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AWR2544_INCLUDE_PATH}"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/include/c"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01/mmwave_mcuplus_sdk_04_07_00_01/"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01/mmwave_dfp_02_04_17_00/"/>
+                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/networking/enet/core/include/"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/networking/enet/soc/awr2544/"/>
@@ -92,8 +91,8 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/lib"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/drivers/lib"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/lib"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01/mmwave_dfp_02_04_17_00/ti/control/mmwavelink/lib/"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01/mmwave_mcuplus_sdk_04_07_00_01/ti/control/mmwave/lib/"/>
+                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwavelink/lib/"/>
+                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwave/lib/"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY.1574453893" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY" valueType="libs">
                                     <listOptionValue value="${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARIES}"/>
@@ -104,7 +103,7 @@
                                     <listOptionValue value="libc.a"/>
                                     <listOptionValue value="libsysbm.a"/>
                                     <listOptionValue value="libmmwave_awr2544.aer5f"/>
-                                    <listOptionValue value="mmwavelink_r5f.lib"/>
+                                    <listOptionValue value="libmmwavelink_awr2544.aer5f"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.DIAG_SUPPRESS.590304264" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.DIAG_SUPPRESS" valueType="stringList">
                                     <listOptionValue value="10063"/>
