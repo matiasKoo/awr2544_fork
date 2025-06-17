@@ -43,6 +43,7 @@
 #include "ti_board_open_close.h"
 #include <drivers/uart.h>
 #include <drivers/adcbuf.h>
+#include <drivers/hwa.h>
 #include <kernel/dpl/AddrTranslateP.h>
 
 
@@ -58,7 +59,7 @@
 #define DPC_TASK_SIZE   (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 
-#define SLEEP_S 2
+#define SLEEP_S 30
 
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
@@ -215,7 +216,7 @@ int32_t open_device(int32_t *err){
     openCfg.laneEnCfg.laneEn = 0b1;
     // and 1 channel
     openCfg.chCfg.rxChannelEn = 0b1;
-    openCfg.chCfg.txChannelEn = 0b1;
+    openCfg.chCfg.txChannelEn = 0b11;
 
     openCfg.chCfg.cascading = 0;
     openCfg.chCfg.cascadingPinoutCfg = 0;
@@ -263,7 +264,7 @@ MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
     chirpCfg.freqSlopeVar = 0;
     chirpCfg.idleTimeVar = 0;
     chirpCfg.adcStartTimeVar = 0;
-    chirpCfg.txEnable |= 0b0001;
+    chirpCfg.txEnable |= 0b0011;
 
     return MMWave_addChirp(profile, &chirpCfg, err);
 }
@@ -317,6 +318,8 @@ void read_adc(){
     }
     
     printf("%u\n", *addr);
+    printf("%u\n", *(addr+1));
+    printf("%u\n", *(addr+2));
 }
 
 
