@@ -1,0 +1,20 @@
+    profileCfg.profileId = 0;
+    profileCfg.pfCalLutUpdate |= 0b00;
+    profileCfg.startFreqConst = 0x558E4BBC; // approx. 77GHz 
+    profileCfg.idleTimeConst = 700;         // 7 usec
+    profileCfg.adcStartTimeConst = 700;     // 7 usec
+    profileCfg.rampEndTime = 2081;	    // 20,81 usec
+    profileCfg.txStartTime = 0;
+    profileCfg.numAdcSamples = 256;
+    profileCfg.digOutSampleRate = 30000;
+    profileCfg.rxGain = 164;
+
+
+    chirpCfg.chirpEndIdx = 5;
+    chirpCfg.chirpStartIdx = 0;
+    chirpCfg.profileId = 0;
+    chirpCfg.startFreqVar = 0;
+    chirpCfg.freqSlopeVar = 0;
+    chirpCfg.idleTimeVar = 0;
+    chirpCfg.adcStartTimeVar = 0;
+    chirpCfg.txEnable |= 0b0001;
