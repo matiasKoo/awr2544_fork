@@ -104,7 +104,7 @@ void exec_task(void *args){
 }
 
 
-void init_mmw(){
+void init_mmw(int32_t *err){
     MMWave_InitCfg initCfg;
     memset(&initCfg, 0, sizeof(initCfg));
 
@@ -115,10 +115,10 @@ void init_mmw(){
     initCfg.linkCRCCfg.crcChannel = CRC_CHANNEL_1;
     initCfg.cfgMode = MMWave_ConfigurationMode_FULL;
 
-    gMmwHandle = MMWave_init(&initCfg, &err);
+    gMmwHandle = MMWave_init(&initCfg, err);
 
     if(gMmwHandle == NULL){
-        Mmw_printErr("Failed to get handle", err);
+        Mmw_printErr("Failed to get handle", *err);
         fail();
     }
 
@@ -161,26 +161,10 @@ void init_adc(){
 }
 
 
-static void create_profiles(){
-    rlProfileCfg_t profileCfg;
-    memset(&profileCfg, 0, sizeof(profileCfg));
-    profileCfg.profileId = 0;
-    profileCfg.pfCalLutUpdate |= 0b11;
-    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
-    profileCfg.idleTimeConst = 0;
-    profileCfg.adcStartTimeConst = 0;
-    profileCfg.rampEndTime = 50000;
-    profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
-    profileCfg.digOutSampleRate = 2000;
-    profileCfg.rxGain |= 32;
-    profileCfg.rxGain |= 128;
-
-    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, &err);
-}
 
 
-int32_t open_device(){
+
+int32_t open_device(int32_t *err){
     int32_t ret = 0;
     MMWave_OpenCfg openCfg;
     memset(&openCfg, 0, sizeof(MMWave_OpenCfg));
@@ -251,13 +235,31 @@ int32_t open_device(){
     openCfg.customCalibrationEnableMask = 0;
     openCfg.calibMonTimeUnit = 1;
 
-    ret = MMWave_open(gMmwHandle, &openCfg, NULL, &err);
+    ret = MMWave_open(gMmwHandle, &openCfg, NULL, err);
 
     return ret;
 }
 
+static void create_profiles(int32_t *err){
+    rlProfileCfg_t profileCfg;
+    memset(&profileCfg, 0, sizeof(profileCfg));
+    profileCfg.profileId = 0;
+    profileCfg.pfCalLutUpdate |= 0b11;
+    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
+    profileCfg.idleTimeConst = 0;
+    profileCfg.adcStartTimeConst = 0;
+    profileCfg.rampEndTime = 50000;
+    profileCfg.txStartTime = 0;
+    profileCfg.numAdcSamples = 2;
+    profileCfg.digOutSampleRate = 2000;
+    profileCfg.rxGain |= 32;
+    profileCfg.rxGain |= 128;
 
-int32_t configure_mmw(){
+    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
+}
+
+
+int32_t configure_mmw(int32_t *err){
     int32_t ret = 0;
     MMWave_CtrlCfg ctrlCfg;
 
@@ -271,18 +273,19 @@ int32_t configure_mmw(){
 
     ctrlCfg.u.frameCfg[0].frameCfg.chirpStartIdx = 0;
     ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 300000;
+    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 1000*1000;
     ctrlCfg.u.frameCfg[0].frameCfg.numFrames = 0;
     ctrlCfg.u.frameCfg[0].frameCfg.triggerSelect = 1;
     ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
 
-    ret = MMWave_config(gMmwHandle, &ctrlCfg, &err);
+    ret = MMWave_config(gMmwHandle, &ctrlCfg, err);
 
     return ret;
 }
 
 
-int32_t start_mmw(){
+int32_t start_mmw(int32_t *err){
+    int32_t ret = 0;
     MMWave_CalibrationCfg calibCfg;
     memset(&calibCfg, 0, sizeof(calibCfg));
     calibCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
@@ -291,7 +294,7 @@ int32_t start_mmw(){
     calibCfg.u.chirpCalibrationCfg.periodicTimeInFrames = 0;
     calibCfg.u.chirpCalibrationCfg.reportEn = 1;
 
-    ret = MMWave_start(gMmwHandle, &calibCfg, &err);
+    ret = MMWave_start(gMmwHandle, &calibCfg, err);
 
     return ret;
 }
@@ -310,9 +313,8 @@ int32_t start_mmw(){
  *  - stop the sensor
  */
 static void init_task(void *args){
-    int32_t err;
-    int32_t ret;
-
+    int32_t err = 0;
+    int32_t ret = 0;
 
     Drivers_open();
     Board_driversOpen();
@@ -321,7 +323,7 @@ static void init_task(void *args){
     
     /* init adc and mmwave */
     init_adc();
-    init_mmw();
+    init_mmw(&err);
 
     DebugP_log("Synchronizing...\r\n");
 
@@ -349,14 +351,14 @@ static void init_task(void *args){
         &gExecTaskObj); /*  pointer to statically allocated task object memory */
     configASSERT(gExecTask != NULL);
 
-    ret = open_device();
+    ret = open_device(&err);
     if(ret != 0){
         fail();
     }
 
-    create_profiles();
+    create_profiles(&err);
 
-    ret = configure_mmw();
+    ret = configure_mmw(&err);
     if (ret != 0){
         Mmw_printErr("Failed to configure", err);
         fail();
@@ -364,13 +366,13 @@ static void init_task(void *args){
 
     DebugP_log("Configured!\r\n");
 
-    ret = start_mmw();
+    ret = start_mmw(&err);
     if (ret !=0){
         Mmw_printErr("Failed to start", err);
         fail();
     }
 
-    ClockP_sleep(2);
+    ClockP_sleep(SLEEP_S);
 
     ret = MMWave_stop(gMmwHandle, &err);
     if(ret != 0){
@@ -381,6 +383,7 @@ static void init_task(void *args){
     // just sit here once we're done
     while (1) __asm__ volatile("wfi");
 }
+
 
 int main(void) {
     /* init SOC specific modules */
