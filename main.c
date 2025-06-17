@@ -56,6 +56,9 @@
 #define EXEC_TASK_SIZE (1024U/sizeof(configSTACK_DEPTH_TYPE))
 #define MAIN_TASK_SIZE (16384U/sizeof(configSTACK_DEPTH_TYPE)-EXEC_TASK_SIZE)
 
+
+#define SLEEP_S 2
+
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
 
@@ -68,6 +71,11 @@ TaskHandle_t gExecTask;
 MMWave_Handle gMmwHandle;
 ADCBuf_Handle gADCHandle;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
+
+static inline void fail(){
+    DebugP_log("Failed\r\n");
+    while(1) __asm__ volatile("wfi");
+}
 
 
 void Mmw_printErr(const char *s, int32_t err){
@@ -87,14 +95,37 @@ int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbL
     return 0;
 }
 
-static void exec_task(void *args){
+
+void exec_task(void *args){
     int32_t err;
     while(1){
         MMWave_execute(gMmwHandle, &err);
     }
 }
 
-static void init_adc(){
+
+void init_mmw(){
+    MMWave_InitCfg initCfg;
+    memset(&initCfg, 0, sizeof(initCfg));
+
+    initCfg.domain = MMWave_Domain_MSS;
+    initCfg.eventFxn = Mmw_callback;
+    initCfg.linkCRCCfg.crcBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(CONFIG_CRC0_BASE_ADDR);
+    initCfg.linkCRCCfg.useCRCDriver = 1;
+    initCfg.linkCRCCfg.crcChannel = CRC_CHANNEL_1;
+    initCfg.cfgMode = MMWave_ConfigurationMode_FULL;
+
+    gMmwHandle = MMWave_init(&initCfg, &err);
+
+    if(gMmwHandle == NULL){
+        Mmw_printErr("Failed to get handle", err);
+        fail();
+    }
+
+}
+
+
+void init_adc(){
     int32_t ret = 0;
     ADCBuf_Params ADCBufParams;
     DebugP_log("Initializing ADC...\r\n");
@@ -121,68 +152,38 @@ static void init_adc(){
     chanconf.channel = 0;
 
     ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
-    if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n");}
+    if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n"); return;}
 
     ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
-    if(ret != 0){ DebugP_logError("Failed to conf channels\r\n");}
+    if(ret != 0){ DebugP_logError("Failed to conf channels\r\n"); return;}
 
     DebugP_log("ADC configured!\r\n");
-
 }
 
 
-static void init_task(void *args){
-    int32_t err;
-    int32_t ret;
+static void create_profiles(){
+    rlProfileCfg_t profileCfg;
+    memset(&profileCfg, 0, sizeof(profileCfg));
+    profileCfg.profileId = 0;
+    profileCfg.pfCalLutUpdate |= 0b11;
+    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
+    profileCfg.idleTimeConst = 0;
+    profileCfg.adcStartTimeConst = 0;
+    profileCfg.rampEndTime = 50000;
+    profileCfg.txStartTime = 0;
+    profileCfg.numAdcSamples = 2;
+    profileCfg.digOutSampleRate = 2000;
+    profileCfg.rxGain |= 32;
+    profileCfg.rxGain |= 128;
 
-    MMWave_InitCfg initCfg;
-
-    Drivers_open();
-    Board_driversOpen();
-
-    init_adc();
-    DebugP_log("Init task launched\r\n");
-    
-    memset(&initCfg, 0, sizeof(initCfg));
+    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, &err);
+}
 
 
-    initCfg.domain = MMWave_Domain_MSS;
-    initCfg.eventFxn = Mmw_callback;
-    initCfg.linkCRCCfg.crcBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(CONFIG_CRC0_BASE_ADDR);
-    initCfg.linkCRCCfg.useCRCDriver = 1;
-    initCfg.linkCRCCfg.crcChannel = CRC_CHANNEL_1;
-    initCfg.cfgMode = MMWave_ConfigurationMode_FULL;
-
-    gMmwHandle = MMWave_init(&initCfg, &err);
-
-    if(gMmwHandle == NULL){
-        Mmw_printErr("Failed to get handle", err);
-        goto end;
-    }
-
-    DebugP_log("Synchronizing...\r\n");
-
-    while(MMWave_sync(gMmwHandle, &err) != 0);
-
-    DebugP_log("Synced!\r\n");
-
+int32_t open_device(){
+    int32_t ret = 0;
     MMWave_OpenCfg openCfg;
     memset(&openCfg, 0, sizeof(MMWave_OpenCfg));
-
-    /* We must create a task that calls MMWave_exec at this point
-     * otherwise the device will get stuck in an internal sync loop */
-    gExecTask = xTaskCreateStatic(
-        exec_task,   /* Pointer to the function that implements the task. */
-        "exec task", /* Text name for the task.  This is to facilitate debugging
-                      only. */
-        EXEC_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
-                         on 32b CPUs */
-        NULL,           /* We are not using the task parameter. */
-        EXEC_TASK_PRI,  /* task priority, 0 is lowest priority,
-                         configMAX_PRIORITIES-1 is highest */
-        gExecTaskStack, /* pointer to stack base */
-        &gExecTaskObj); /* pointer to statically allocated task object memory */
-    configASSERT(gExecTask != NULL);
 
     // these are from the oob demo
     // probably corresponds to 76-81 GHz
@@ -252,29 +253,14 @@ static void init_task(void *args){
 
     ret = MMWave_open(gMmwHandle, &openCfg, NULL, &err);
 
-    if (ret != 0) {
-      Mmw_printErr("Failed to open", err);
-    }
-
-    // just add 1 profile
-    rlProfileCfg_t profileCfg;
-    memset(&profileCfg, 0, sizeof(profileCfg));
-    profileCfg.profileId = 0;
-    profileCfg.pfCalLutUpdate |= 0b11;
-    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
-    profileCfg.idleTimeConst = 0;
-    profileCfg.adcStartTimeConst = 0;
-    profileCfg.rampEndTime = 50000;
-    profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
-    profileCfg.digOutSampleRate = 2000;
-    profileCfg.rxGain |= 32;
-    profileCfg.rxGain |= 128;
-
-    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, &err);
+    return ret;
+}
 
 
+int32_t configure_mmw(){
+    int32_t ret = 0;
     MMWave_CtrlCfg ctrlCfg;
+
     memset(&ctrlCfg, 0, sizeof(ctrlCfg));
     ctrlCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
     ctrlCfg.numOfPhaseShiftChirps[0] = 768U;
@@ -291,13 +277,12 @@ static void init_task(void *args){
     ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
 
     ret = MMWave_config(gMmwHandle, &ctrlCfg, &err);
-    if (ret != 0){
-        Mmw_printErr("Failed to configure", err);
-        goto end;
-    }
 
-    DebugP_log("Configured!\r\n");
+    return ret;
+}
 
+
+int32_t start_mmw(){
     MMWave_CalibrationCfg calibCfg;
     memset(&calibCfg, 0, sizeof(calibCfg));
     calibCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
@@ -307,50 +292,124 @@ static void init_task(void *args){
     calibCfg.u.chirpCalibrationCfg.reportEn = 1;
 
     ret = MMWave_start(gMmwHandle, &calibCfg, &err);
+
+    return ret;
+}
+
+
+/* init process goes as follows:
+ * 
+ *  - initialize both the ADCBuf and MMW peripherals
+ *  - synchronize mmwavelink
+ *  - create the MMWave_execute task
+ *  - open the device
+ *  - create profile(s) 
+ *  - configure the device to use profile(s)
+ *  - start the sensor
+ *  - sleep for SLEEP_S
+ *  - stop the sensor
+ */
+static void init_task(void *args){
+    int32_t err;
+    int32_t ret;
+
+
+    Drivers_open();
+    Board_driversOpen();
+
+    DebugP_log("Init task launched\r\n");
+    
+    /* init adc and mmwave */
+    init_adc();
+    init_mmw();
+
+    DebugP_log("Synchronizing...\r\n");
+
+    /* NOTE: According to the documentation a return value of 1
+     * is supposed to mean synchronized, however MMWave_sync()
+     * will under no circumstances return a value of 1.
+     * So unless this is changed/fixed in a later version
+     * treat 0 as a success and != 0 (<0) as a failure */
+    while(MMWave_sync(gMmwHandle, &err) != 0);
+
+    DebugP_log("Synced!\r\n");
+
+    /* We must create a task that calls MMWave_exec at this point
+     * otherwise the device will get stuck in an internal sync loop */
+    gExecTask = xTaskCreateStatic(
+        exec_task,      /*  Pointer to the function that implements the task. */
+        "exec task",    /*  Text name for the task.  This is to facilitate debugging
+                            only. */
+        EXEC_TASK_SIZE, /*  Stack depth in units of StackType_t typically uint32_t
+                            on 32b CPUs */
+        NULL,           /*  We are not using the task parameter. */
+        EXEC_TASK_PRI,  /*  task priority, 0 is lowest priority,
+                            configMAX_PRIORITIES-1 is highest */
+        gExecTaskStack, /*  pointer to stack base */
+        &gExecTaskObj); /*  pointer to statically allocated task object memory */
+    configASSERT(gExecTask != NULL);
+
+    ret = open_device();
+    if(ret != 0){
+        fail();
+    }
+
+    create_profiles();
+
+    ret = configure_mmw();
+    if (ret != 0){
+        Mmw_printErr("Failed to configure", err);
+        fail();
+    }
+
+    DebugP_log("Configured!\r\n");
+
+    ret = start_mmw();
     if (ret !=0){
         Mmw_printErr("Failed to start", err);
-        goto end;
+        fail();
     }
+
     ClockP_sleep(2);
+
     ret = MMWave_stop(gMmwHandle, &err);
     if(ret != 0){
         Mmw_printErr("Failed to stop", err);
+        fail();
     }
 
-end:
-  // sit here
-  while (1)
-    __asm__ volatile("wfi");
+    // just sit here once we're done
+    while (1) __asm__ volatile("wfi");
 }
 
 int main(void) {
-  /* init SOC specific modules */
-  System_init();
-  Board_init();
+    /* init SOC specific modules */
+    System_init();
+    Board_init();
 
-  /* This task is created at highest priority, it should create more tasks and
-   * then delete itself */
-  gMainTask = xTaskCreateStatic(
-      init_task,   /* Pointer to the function that implements the task. */
-      "init task", /* Text name for the task.  This is to facilitate debugging
-                      only. */
-      MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
-                         on 32b CPUs */
-      NULL,           /* We are not using the task parameter. */
-      MAIN_TASK_PRI,  /* task priority, 0 is lowest priority,
-                         configMAX_PRIORITIES-1 is highest */
-      gMainTaskStack, /* pointer to stack base */
-      &gMainTaskObj); /* pointer to statically allocated task object memory */
-  configASSERT(gMainTask != NULL);
+    /* This task is created at highest priority, it should create more tasks and
+     * then delete itself */
+    gMainTask = xTaskCreateStatic(
+            init_task,   /* Pointer to the function that implements the task. */
+            "init task", /* Text name for the task.  This is to facilitate debugging
+                            only. */
+            MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
+                               on 32b CPUs */
+            NULL,           /* We are not using the task parameter. */
+            MAIN_TASK_PRI,  /* task priority, 0 is lowest priority,
+                               configMAX_PRIORITIES-1 is highest */
+            gMainTaskStack, /* pointer to stack base */
+            &gMainTaskObj); /* pointer to statically allocated task object memory */
+    configASSERT(gMainTask != NULL);
 
-  /* Start the scheduler to start the tasks executing. */
-  vTaskStartScheduler();
+    /* Start the scheduler to start the tasks executing. */
+    vTaskStartScheduler();
 
-  /* The following line should never be reached because vTaskStartScheduler()
-  will only return if there was not enough FreeRTOS heap memory available to
-  create the Idle and (if configured) Timer tasks.  Heap management, and
-  techniques for trapping heap exhaustion, are described in the book text. */
-  DebugP_assertNoLog(0);
+    /* The following line should never be reached because vTaskStartScheduler()
+       will only return if there was not enough FreeRTOS heap memory available to
+       create the Idle and (if configured) Timer tasks.  Heap management, and
+       techniques for trapping heap exhaustion, are described in the book text. */
+    DebugP_assertNoLog(0);
 
-  return 0;
+    return 0;
 }
