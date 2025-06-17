@@ -53,19 +53,24 @@
 #define MAIN_TASK_PRI  (configMAX_PRIORITIES-2)
 #define EXEC_TASK_PRI  (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
 
-#define EXEC_TASK_SIZE (1024U/sizeof(configSTACK_DEPTH_TYPE))
-#define MAIN_TASK_SIZE (16384U/sizeof(configSTACK_DEPTH_TYPE)-EXEC_TASK_SIZE)
+#define EXEC_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
+#define MAIN_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
+#define DPC_TASK_SIZE   (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 
 #define SLEEP_S 2
 
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
+StackType_t gDpcTaskStack[DPC_TASK_SIZE] __attribute__((aligned(32)));
 
 StaticTask_t gMainTaskObj;
 StaticTask_t gExecTaskObj;
+StaticTask_t gDpcTaskObj;
+
 TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
+TaskHandle_t gDpcTask;
 
 
 MMWave_Handle gMmwHandle;
@@ -75,6 +80,12 @@ MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 static inline void fail(){
     DebugP_log("Failed\r\n");
     while(1) __asm__ volatile("wfi");
+}
+
+int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
+    DebugP_log("MMWave callback called\r\n");
+    DebugP_log("devidx: %d, msgId: %u, sbId: %u, sbLen: %u\r\n", devIdx, msgId, sbId, sbLen);
+    return 0;
 }
 
 
@@ -89,19 +100,6 @@ void Mmw_printErr(const char *s, int32_t err){
 }
 
 
-int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
-    DebugP_log("MMWave callback called\r\n");
-    DebugP_log("devidx: %d, msgId: %u, sbId: %u, sbLen: %u\r\n", devIdx, msgId, sbId, sbLen);
-    return 0;
-}
-
-
-void exec_task(void *args){
-    int32_t err;
-    while(1){
-        MMWave_execute(gMmwHandle, &err);
-    }
-}
 
 
 void init_mmw(int32_t *err){
@@ -159,9 +157,6 @@ void init_adc(){
 
     DebugP_log("ADC configured!\r\n");
 }
-
-
-
 
 
 int32_t open_device(int32_t *err){
@@ -245,15 +240,14 @@ static void create_profiles(int32_t *err){
     memset(&profileCfg, 0, sizeof(profileCfg));
     profileCfg.profileId = 0;
     profileCfg.pfCalLutUpdate |= 0b00;
-    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
-    profileCfg.idleTimeConst = 524287;
-    profileCfg.adcStartTimeConst = 0;
-    profileCfg.rampEndTime = 50000;
+    profileCfg.startFreqConst = 0x558E4BBC; // approx. 77GHz 
+    profileCfg.idleTimeConst = 700;         // 7 usec
+    profileCfg.adcStartTimeConst = 700;     // 7 usec
+    profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
-    profileCfg.digOutSampleRate = 2000;
-    profileCfg.rxGain |= 32;
-    profileCfg.rxGain |= 128;
+    profileCfg.numAdcSamples = 256;
+    profileCfg.digOutSampleRate = 30000;
+    profileCfg.rxGain = 164;
 
     gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
 }
@@ -262,14 +256,15 @@ static void create_profiles(int32_t *err){
 MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
     rlChirpCfg_t chirpCfg;
     memset(&chirpCfg, 0, sizeof(chirpCfg));
-    chirpCfg.chirpEndIdx = 0;
+    chirpCfg.chirpEndIdx = 5;
     chirpCfg.chirpStartIdx = 0;
     chirpCfg.profileId = 0;
     chirpCfg.startFreqVar = 0;
     chirpCfg.freqSlopeVar = 0;
-    chirpCfg.idleTimeVar = 200;
+    chirpCfg.idleTimeVar = 0;
     chirpCfg.adcStartTimeVar = 0;
-    chirpCfg.txEnable |= 0b001;
+    chirpCfg.txEnable |= 0b0001;
+
     return MMWave_addChirp(profile, &chirpCfg, err);
 }
 
@@ -313,6 +308,31 @@ int32_t start_mmw(int32_t *err){
     return ret;
 }
 
+void read_adc(){
+    int32_t err;
+    volatile uint32_t *addr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
+    if(addr == NULL){ 
+        DebugP_logError("Failed to get adc address");
+        return;
+    }
+    
+    printf("%u\n", *addr);
+}
+
+
+static void dpc_task(void *args){
+    int32_t err = 0;
+    
+}
+
+
+static void exec_task(void *args){
+    int32_t err;
+    while(1){
+        MMWave_execute(gMmwHandle, &err);
+    }
+}
+
 
 /* init process goes as follows:
  * 
@@ -321,6 +341,7 @@ int32_t start_mmw(int32_t *err){
  *  - create the MMWave_execute task
  *  - open the device
  *  - create profile(s) 
+ *  - add chirp configuration
  *  - configure the device to use profile(s)
  *  - start the sensor
  *  - sleep for SLEEP_S
@@ -406,6 +427,7 @@ static void init_task(void *args){
     }
     DebugP_log("Stopped\r\n");
 
+    read_adc();
 
     DebugP_log("You made it to the end\r\n");
     // just sit here once we're done
@@ -413,13 +435,14 @@ static void init_task(void *args){
 }
 
 
+
 int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
 
-    /* This task is created at highest priority, it should create more tasks and
-     * then delete itself */
+    /* Create this at 2nd highest priority to initialize everything
+     * the MMWave_execute task must have a higher priority than this */
     gMainTask = xTaskCreateStatic(
             init_task,   /* Pointer to the function that implements the task. */
             "init task", /* Text name for the task.  This is to facilitate debugging
