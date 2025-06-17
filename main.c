@@ -227,7 +227,7 @@ int32_t open_device(int32_t *err){
 
     // hopefully not getting complex output but this gives I first
     openCfg.iqSwapSel = 0;
-    openCfg.chInterleave = 1; // counterintuivitely this means we don't interleave
+    openCfg.chInterleave = 1; // counterintuitively this means we don't interleave
 
     openCfg.defaultAsyncEventHandler = MMWave_DefaultAsyncEventHandler_MSS;
 
