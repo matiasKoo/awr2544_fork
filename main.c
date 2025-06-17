@@ -244,9 +244,9 @@ static void create_profiles(int32_t *err){
     rlProfileCfg_t profileCfg;
     memset(&profileCfg, 0, sizeof(profileCfg));
     profileCfg.profileId = 0;
-    profileCfg.pfCalLutUpdate |= 0b11;
+    profileCfg.pfCalLutUpdate |= 0b00;
     profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
-    profileCfg.idleTimeConst = 0;
+    profileCfg.idleTimeConst = 524287;
     profileCfg.adcStartTimeConst = 0;
     profileCfg.rampEndTime = 50000;
     profileCfg.txStartTime = 0;
@@ -258,6 +258,20 @@ static void create_profiles(int32_t *err){
     gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
 }
 
+
+MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
+    rlChirpCfg_t chirpCfg;
+    memset(&chirpCfg, 0, sizeof(chirpCfg));
+    chirpCfg.chirpEndIdx = 0;
+    chirpCfg.chirpStartIdx = 0;
+    chirpCfg.profileId = 0;
+    chirpCfg.startFreqVar = 0;
+    chirpCfg.freqSlopeVar = 0;
+    chirpCfg.idleTimeVar = 200;
+    chirpCfg.adcStartTimeVar = 0;
+    chirpCfg.txEnable |= 0b001;
+    return MMWave_addChirp(profile, &chirpCfg, err);
+}
 
 int32_t configure_mmw(int32_t *err){
     int32_t ret = 0;
@@ -273,7 +287,7 @@ int32_t configure_mmw(int32_t *err){
 
     ctrlCfg.u.frameCfg[0].frameCfg.chirpStartIdx = 0;
     ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 1000*1000;
+    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 20000000;
     ctrlCfg.u.frameCfg[0].frameCfg.numFrames = 0;
     ctrlCfg.u.frameCfg[0].frameCfg.triggerSelect = 1;
     ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
@@ -353,10 +367,16 @@ static void init_task(void *args){
 
     ret = open_device(&err);
     if(ret != 0){
+        Mmw_printErr("Failed to open device", err);
         fail();
     }
 
     create_profiles(&err);
+    MMWave_ChirpHandle chirp = add_chirp(gMmwProfiles[0], &err);
+    if(chirp == NULL){
+        Mmw_printErr("Failed to add chirp", err);
+    }
+
 
     ret = configure_mmw(&err);
     if (ret != 0){
@@ -364,22 +384,30 @@ static void init_task(void *args){
         fail();
     }
 
+
+
     DebugP_log("Configured!\r\n");
 
+    DebugP_log("Starting...\r\n");
     ret = start_mmw(&err);
     if (ret !=0){
         Mmw_printErr("Failed to start", err);
         fail();
     }
+    DebugP_log("Started\r\n");
 
     ClockP_sleep(SLEEP_S);
 
+    DebugP_log("Stopping...\r\n");
     ret = MMWave_stop(gMmwHandle, &err);
     if(ret != 0){
         Mmw_printErr("Failed to stop", err);
         fail();
     }
+    DebugP_log("Stopped\r\n");
 
+
+    DebugP_log("You made it to the end\r\n");
     // just sit here once we're done
     while (1) __asm__ volatile("wfi");
 }
