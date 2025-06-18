@@ -54,6 +54,7 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/FreeRTOS-Kernel/include"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/config/awr2544/r5f"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/portable/TI_ARM_CLANG/ARM_CR5F"/>
+                                    <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/board"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.DEFINE.176231449" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.DEFINE" valueType="definedSymbols">
                                     <listOptionValue value="${COM_TI_MMWAVE_MCUPLUS_SDK_SYMBOLS}"/>
@@ -93,6 +94,7 @@
                                     <listOptionValue value="${CG_TOOL_ROOT}/lib"/>
                                     <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwavelink/lib/"/>
                                     <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwave/lib/"/>
+                                    <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/board/lib"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY.1574453893" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY" valueType="libs">
                                     <listOptionValue value="${COM_TI_MMWAVE_MCUPLUS_SDK_LIBRARIES}"/>
@@ -104,6 +106,8 @@
                                     <listOptionValue value="libsysbm.a"/>
                                     <listOptionValue value="libmmwave_awr2544.aer5f"/>
                                     <listOptionValue value="libmmwavelink_awr2544.aer5f"/>
+                                    <listOptionValue value="board.awr2544.r5f.ti-arm-clang.release.lib"/>
+                                    <listOptionValue value="board.awr2544.r5f.ti-arm-clang.debug.lib"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.DIAG_SUPPRESS.590304264" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.DIAG_SUPPRESS" valueType="stringList">
                                     <listOptionValue value="10063"/>

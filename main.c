@@ -45,6 +45,7 @@
 #include <drivers/adcbuf.h>
 #include <drivers/hwa.h>
 #include <kernel/dpl/AddrTranslateP.h>
+#include <kernel/dpl/HwiP.h>
 
 
 #include <ti/common/syscommon.h>
@@ -73,6 +74,11 @@ TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
 TaskHandle_t gDpcTask;
 
+void test_isr(void*);
+
+volatile bool gState = 0;
+
+uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
 
 MMWave_Handle gMmwHandle;
 ADCBuf_Handle gADCHandle;
@@ -100,7 +106,45 @@ void Mmw_printErr(const char *s, int32_t err){
     DebugP_log("Error level %s, mmWaveErr: %hd, subSysErr: %hd\r\n", (errLvl == MMWave_ErrorLevel_ERROR ? "Error" : "Warning"), mmwErr, subErr);
 }
 
+void init_butt(){
+    int32_t ret = 0;
+    gGpioBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(gGpioBaseAddr);
+    const uint32_t pinnum = GPIO_PUSH_BUTTON_PIN;
+    const uint32_t intrnum = GPIO_PUSH_BUTTON_INTR_LEVEL == GPIO_INTR_LEVEL_HIGH ? 
+                        GPIO_PUSH_BUTTON_INTR_HIGH : GPIO_PUSH_BUTTON_INTR_LOW;
 
+    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
+    const uint32_t ledpin = GPIO_LED_PIN;
+    GPIO_setDirMode(ledaddr, ledpin, GPIO_LED_DIR);
+
+    GPIO_setDirMode(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_DIR);
+
+    ret = GPIO_ignoreOrHonorPolarity(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
+    if(ret != 0){ DebugP_log("Failed to ignore or honor polarity\r\n");}
+
+    ret = GPIO_setTrigType(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
+    if(ret != 0){ DebugP_log("Failed to set trig type\r\n");}
+
+    ret = GPIO_markHighLowLevelInterrupt(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_INTR_LEVEL);
+    if(ret != 0){ DebugP_log("Failed to mark\r\n");}
+
+    ret = GPIO_clearInterrupt(gGpioBaseAddr, pinnum);
+    if(ret != 0){ DebugP_log("Failed to clear\r\n");}
+
+    ret = GPIO_enableInterrupt(gGpioBaseAddr, pinnum);
+    if(ret != 0){ DebugP_log("Failed to enable\r\n");}
+
+    HwiP_Object hwiobj;
+    HwiP_Params params;
+    HwiP_Params_init(&params);
+    params.intNum = intrnum;
+    params.args = (void*)pinnum;
+    params.callback = &test_isr;
+    ret = HwiP_construct(&hwiobj, &params);
+    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+    HwiP_enable();
+
+}
 
 
 void init_mmw(int32_t *err){
@@ -216,7 +260,7 @@ int32_t open_device(int32_t *err){
     openCfg.laneEnCfg.laneEn = 0b1;
     // and 1 channel
     openCfg.chCfg.rxChannelEn = 0b1;
-    openCfg.chCfg.txChannelEn = 0b11;
+    openCfg.chCfg.txChannelEn = 0b1;
 
     openCfg.chCfg.cascading = 0;
     openCfg.chCfg.cascadingPinoutCfg = 0;
@@ -264,7 +308,7 @@ MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
     chirpCfg.freqSlopeVar = 0;
     chirpCfg.idleTimeVar = 0;
     chirpCfg.adcStartTimeVar = 0;
-    chirpCfg.txEnable |= 0b0011;
+    chirpCfg.txEnable |= 0b0001;
 
     return MMWave_addChirp(profile, &chirpCfg, err);
 }
@@ -358,7 +402,9 @@ static void init_task(void *args){
     Board_driversOpen();
 
     DebugP_log("Init task launched\r\n");
-    
+
+    init_butt();
+
     /* init adc and mmwave */
     init_adc();
     init_mmw(&err);
@@ -412,29 +458,50 @@ static void init_task(void *args){
 
     DebugP_log("Configured!\r\n");
 
-    DebugP_log("Starting...\r\n");
-    ret = start_mmw(&err);
-    if (ret !=0){
-        Mmw_printErr("Failed to start", err);
-        fail();
+    /* TODO: Move this to a separate task, init shouldn't handle it
+     * but it's fine for now */
+    static bool started = 0;
+    while(1){
+        if(gState == 1 && started == 0){
+            ret = start_mmw(&err);
+            if(ret != 0){
+                Mmw_printErr("Failed to start", err);
+                fail();
+            }
+
+            DebugP_log("Started\r\n");
+            started = 1;
+        }else if(gState == 0 && started == 1){
+            ret = MMWave_stop(gMmwHandle, &err);
+            if(ret != 0){
+                Mmw_printErr("Failed to stop", err);
+                fail();
+            }
+            DebugP_log("Stopped\r\n");
+            started = 0;
+        }
+
+        ClockP_usleep(50000);
+
     }
-    DebugP_log("Started\r\n");
 
-    ClockP_sleep(SLEEP_S);
-
-    DebugP_log("Stopping...\r\n");
-    ret = MMWave_stop(gMmwHandle, &err);
-    if(ret != 0){
-        Mmw_printErr("Failed to stop", err);
-        fail();
-    }
-    DebugP_log("Stopped\r\n");
-
-    read_adc();
-
-    DebugP_log("You made it to the end\r\n");
-    // just sit here once we're done
     while (1) __asm__ volatile("wfi");
+}
+
+void test_isr(void *arg){
+    uint32_t pending;
+    uint32_t pin = (uint32_t)arg;
+    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
+
+    pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
+    GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
+    if(pending){
+        gState = gState ? 0 : 1;
+        gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
+        
+    }
+
+    return;
 }
 
 
@@ -443,6 +510,8 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
+
+
 
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
@@ -461,7 +530,7 @@ int main(void) {
 
     /* Start the scheduler to start the tasks executing. */
     vTaskStartScheduler();
-
+    while(1)__asm__("wfi");
     /* The following line should never be reached because vTaskStartScheduler()
        will only return if there was not enough FreeRTOS heap memory available to
        create the Idle and (if configured) Timer tasks.  Heap management, and

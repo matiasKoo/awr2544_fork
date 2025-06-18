@@ -1,8 +1,8 @@
 /**
  * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
  * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
- * @cliArgs --device "AWR2544" --part "Default" --package "LOP" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@10.00.00"
- * @v2CliArgs --device "AWR2544" --package "FCCSP (ABL)" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@10.00.00"
+ * @cliArgs --device "AWR2544" --part "Default" --package "LOP" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@09.01.00"
+ * @v2CliArgs --device "AWR2544" --package "FCCSP (ABL)" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@09.01.00"
  * @versions {"tool":"1.24.0+4110"}
  */
 
@@ -17,6 +17,9 @@ const crc        = scripting.addModule("/drivers/crc/crc", {}, false);
 const crc1       = crc.addInstance();
 const edma       = scripting.addModule("/drivers/edma/edma", {}, false);
 const edma1      = edma.addInstance();
+const gpio       = scripting.addModule("/drivers/gpio/gpio", {}, false);
+const gpio1      = gpio.addInstance();
+const gpio2      = gpio.addInstance();
 const hwa        = scripting.addModule("/drivers/hwa/hwa", {}, false);
 const hwa1       = hwa.addInstance();
 const ipc        = scripting.addModule("/drivers/ipc/ipc");
@@ -40,6 +43,16 @@ adcbuf1.$name = "CONFIG_ADCBUF0";
 cbuff1.$name = "CONFIG_CBUFF0";
 
 crc1.$name = "CONFIG_CRC0";
+
+gpio1.$name                = "GPIO_PUSH_BUTTON";
+gpio1.trigType             = "RISE_EDGE";
+gpio1.GPIO.$assign         = "GPIO8";
+gpio1.GPIO.gpioPin.$assign = "PAD_BH";
+
+gpio2.$name        = "GPIO_LED";
+gpio2.pinDir       = "OUTPUT";
+gpio2.trigType     = "RISE_EDGE";
+gpio2.GPIO.$assign = "GPIO2";
 
 hwa1.$name                   = "CONFIG_HWA0";
 hwa1.configParamset[0].$name = "HWA_PARAMSET_CONFIG0";
@@ -97,10 +110,11 @@ mpu_armv76.allowExecute = false;
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-qspi1.QSPI["0"].$suggestSolution = "PAD_AL";
-qspi1.QSPI["1"].$suggestSolution = "PAD_AM";
-qspi1.QSPI["2"].$suggestSolution = "PAD_AN";
-qspi1.QSPI["3"].$suggestSolution = "PAD_AO";
-qspi1.QSPI.$suggestSolution      = "QSPI0";
-qspi1.QSPI.CLK.$suggestSolution  = "PAD_AP";
-qspi1.QSPI.CS.$suggestSolution   = "PAD_AQ";
+gpio2.GPIO.gpioPin.$suggestSolution = "PAD_AZ";
+qspi1.QSPI["0"].$suggestSolution    = "PAD_AL";
+qspi1.QSPI["1"].$suggestSolution    = "PAD_AM";
+qspi1.QSPI["2"].$suggestSolution    = "PAD_AN";
+qspi1.QSPI["3"].$suggestSolution    = "PAD_AO";
+qspi1.QSPI.$suggestSolution         = "QSPI0";
+qspi1.QSPI.CLK.$suggestSolution     = "PAD_AP";
+qspi1.QSPI.CS.$suggestSolution      = "PAD_AQ";
