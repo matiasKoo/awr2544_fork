@@ -4,3 +4,6 @@ Debug/*
 *.bin
 *.out
 *.rprc
+.ccsproject
+.cproject
+.project
