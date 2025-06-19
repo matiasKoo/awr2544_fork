@@ -201,8 +201,8 @@ void init_adc(){
     DebugP_log("Got ADC handle\r\n");
 
     // These should apparently be 4 byte aligned
-    __aligned(4) ADCBuf_dataFormat datafmt = {0};
-    __aligned(4) ADCBuf_RxChanConf chanconf = {0};
+    ADCBuf_dataFormat datafmt __attribute__((aligned(4))) = {0};
+    ADCBuf_RxChanConf chanconf __attribute__((aligned(4))) = {0};
     datafmt.adcOutFormat = 1;
     datafmt.sampleInterleave = 0;
     datafmt.channelInterleave = 1; // apparently non-interleaved might be the only valid option for AWR2544
