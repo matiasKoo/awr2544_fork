@@ -43,7 +43,9 @@
 #include "ti_board_open_close.h"
 #include <drivers/uart.h>
 #include <drivers/adcbuf.h>
+#include <drivers/hwa.h>
 #include <kernel/dpl/AddrTranslateP.h>
+#include <kernel/dpl/HwiP.h>
 
 
 #include <ti/common/syscommon.h>
@@ -53,20 +55,30 @@
 #define MAIN_TASK_PRI  (configMAX_PRIORITIES-2)
 #define EXEC_TASK_PRI  (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
 
-#define EXEC_TASK_SIZE (1024U/sizeof(configSTACK_DEPTH_TYPE))
-#define MAIN_TASK_SIZE (16384U/sizeof(configSTACK_DEPTH_TYPE)-EXEC_TASK_SIZE)
+#define EXEC_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
+#define MAIN_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
+#define DPC_TASK_SIZE   (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 
-#define SLEEP_S 2
+#define SLEEP_S 30
 
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
+StackType_t gDpcTaskStack[DPC_TASK_SIZE] __attribute__((aligned(32)));
 
 StaticTask_t gMainTaskObj;
 StaticTask_t gExecTaskObj;
+StaticTask_t gDpcTaskObj;
+
 TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
+TaskHandle_t gDpcTask;
 
+void test_isr(void*);
+
+volatile bool gState = 0;
+
+uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
 
 MMWave_Handle gMmwHandle;
 ADCBuf_Handle gADCHandle;
@@ -75,6 +87,12 @@ MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 static inline void fail(){
     DebugP_log("Failed\r\n");
     while(1) __asm__ volatile("wfi");
+}
+
+int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
+    DebugP_log("MMWave callback called\r\n");
+    DebugP_log("devidx: %d, msgId: %u, sbId: %u, sbLen: %u\r\n", devIdx, msgId, sbId, sbLen);
+    return 0;
 }
 
 
@@ -88,19 +106,44 @@ void Mmw_printErr(const char *s, int32_t err){
     DebugP_log("Error level %s, mmWaveErr: %hd, subSysErr: %hd\r\n", (errLvl == MMWave_ErrorLevel_ERROR ? "Error" : "Warning"), mmwErr, subErr);
 }
 
+void init_butt(){
+    int32_t ret = 0;
+    gGpioBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(gGpioBaseAddr);
+    const uint32_t pinnum = GPIO_PUSH_BUTTON_PIN;
+    const uint32_t intrnum = GPIO_PUSH_BUTTON_INTR_LEVEL == GPIO_INTR_LEVEL_HIGH ? 
+                        GPIO_PUSH_BUTTON_INTR_HIGH : GPIO_PUSH_BUTTON_INTR_LOW;
 
-int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
-    DebugP_log("MMWave callback called\r\n");
-    DebugP_log("devidx: %d, msgId: %u, sbId: %u, sbLen: %u\r\n", devIdx, msgId, sbId, sbLen);
-    return 0;
-}
+    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
+    const uint32_t ledpin = GPIO_LED_PIN;
+    GPIO_setDirMode(ledaddr, ledpin, GPIO_LED_DIR);
 
+    GPIO_setDirMode(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_DIR);
 
-void exec_task(void *args){
-    int32_t err;
-    while(1){
-        MMWave_execute(gMmwHandle, &err);
-    }
+    ret = GPIO_ignoreOrHonorPolarity(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
+    if(ret != 0){ DebugP_log("Failed to ignore or honor polarity\r\n");}
+
+    ret = GPIO_setTrigType(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
+    if(ret != 0){ DebugP_log("Failed to set trig type\r\n");}
+
+    ret = GPIO_markHighLowLevelInterrupt(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_INTR_LEVEL);
+    if(ret != 0){ DebugP_log("Failed to mark\r\n");}
+
+    ret = GPIO_clearInterrupt(gGpioBaseAddr, pinnum);
+    if(ret != 0){ DebugP_log("Failed to clear\r\n");}
+
+    ret = GPIO_enableInterrupt(gGpioBaseAddr, pinnum);
+    if(ret != 0){ DebugP_log("Failed to enable\r\n");}
+
+    HwiP_Object hwiobj;
+    HwiP_Params params;
+    HwiP_Params_init(&params);
+    params.intNum = intrnum;
+    params.args = (void*)pinnum;
+    params.callback = &test_isr;
+    ret = HwiP_construct(&hwiobj, &params);
+    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+    HwiP_enable();
+
 }
 
 
@@ -159,9 +202,6 @@ void init_adc(){
 
     DebugP_log("ADC configured!\r\n");
 }
-
-
-
 
 
 int32_t open_device(int32_t *err){
@@ -245,15 +285,14 @@ static void create_profiles(int32_t *err){
     memset(&profileCfg, 0, sizeof(profileCfg));
     profileCfg.profileId = 0;
     profileCfg.pfCalLutUpdate |= 0b00;
-    profileCfg.startFreqConst = 0x5471C71C; // 75,999 GHz
-    profileCfg.idleTimeConst = 524287;
-    profileCfg.adcStartTimeConst = 0;
-    profileCfg.rampEndTime = 50000;
+    profileCfg.startFreqConst = 0x558E4BBC; // approx. 77GHz 
+    profileCfg.idleTimeConst = 700;         // 7 usec
+    profileCfg.adcStartTimeConst = 700;     // 7 usec
+    profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
-    profileCfg.digOutSampleRate = 2000;
-    profileCfg.rxGain |= 32;
-    profileCfg.rxGain |= 128;
+    profileCfg.numAdcSamples = 256;
+    profileCfg.digOutSampleRate = 30000;
+    profileCfg.rxGain = 164;
 
     gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
 }
@@ -262,14 +301,15 @@ static void create_profiles(int32_t *err){
 MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
     rlChirpCfg_t chirpCfg;
     memset(&chirpCfg, 0, sizeof(chirpCfg));
-    chirpCfg.chirpEndIdx = 0;
+    chirpCfg.chirpEndIdx = 5;
     chirpCfg.chirpStartIdx = 0;
     chirpCfg.profileId = 0;
     chirpCfg.startFreqVar = 0;
     chirpCfg.freqSlopeVar = 0;
-    chirpCfg.idleTimeVar = 200;
+    chirpCfg.idleTimeVar = 0;
     chirpCfg.adcStartTimeVar = 0;
-    chirpCfg.txEnable |= 0b001;
+    chirpCfg.txEnable |= 0b0001;
+
     return MMWave_addChirp(profile, &chirpCfg, err);
 }
 
@@ -313,6 +353,33 @@ int32_t start_mmw(int32_t *err){
     return ret;
 }
 
+void read_adc(){
+    int32_t err;
+    volatile uint32_t *addr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
+    if(addr == NULL){ 
+        DebugP_logError("Failed to get adc address");
+        return;
+    }
+    
+    printf("%u\n", *addr);
+    printf("%u\n", *(addr+1));
+    printf("%u\n", *(addr+2));
+}
+
+
+static void dpc_task(void *args){
+    int32_t err = 0;
+    
+}
+
+
+static void exec_task(void *args){
+    int32_t err;
+    while(1){
+        MMWave_execute(gMmwHandle, &err);
+    }
+}
+
 
 /* init process goes as follows:
  * 
@@ -321,6 +388,7 @@ int32_t start_mmw(int32_t *err){
  *  - create the MMWave_execute task
  *  - open the device
  *  - create profile(s) 
+ *  - add chirp configuration
  *  - configure the device to use profile(s)
  *  - start the sensor
  *  - sleep for SLEEP_S
@@ -334,7 +402,9 @@ static void init_task(void *args){
     Board_driversOpen();
 
     DebugP_log("Init task launched\r\n");
-    
+
+    init_butt();
+
     /* init adc and mmwave */
     init_adc();
     init_mmw(&err);
@@ -388,29 +458,52 @@ static void init_task(void *args){
 
     DebugP_log("Configured!\r\n");
 
-    DebugP_log("Starting...\r\n");
-    ret = start_mmw(&err);
-    if (ret !=0){
-        Mmw_printErr("Failed to start", err);
-        fail();
+    /* TODO: Move this to a separate task, init shouldn't handle it
+     * but it's fine for now */
+    static bool started = 0;
+    while(1){
+        if(gState == 1 && started == 0){
+            ret = start_mmw(&err);
+            if(ret != 0){
+                Mmw_printErr("Failed to start", err);
+                fail();
+            }
+
+            DebugP_log("Started\r\n");
+            started = 1;
+        }else if(gState == 0 && started == 1){
+            ret = MMWave_stop(gMmwHandle, &err);
+            if(ret != 0){
+                Mmw_printErr("Failed to stop", err);
+                fail();
+            }
+            DebugP_log("Stopped\r\n");
+            started = 0;
+        }
+
+        ClockP_usleep(50000);
+
     }
-    DebugP_log("Started\r\n");
 
-    ClockP_sleep(SLEEP_S);
-
-    DebugP_log("Stopping...\r\n");
-    ret = MMWave_stop(gMmwHandle, &err);
-    if(ret != 0){
-        Mmw_printErr("Failed to stop", err);
-        fail();
-    }
-    DebugP_log("Stopped\r\n");
-
-
-    DebugP_log("You made it to the end\r\n");
-    // just sit here once we're done
     while (1) __asm__ volatile("wfi");
 }
+
+void test_isr(void *arg){
+    uint32_t pending;
+    uint32_t pin = (uint32_t)arg;
+    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
+
+    pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
+    GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
+    if(pending){
+        gState = gState ? 0 : 1;
+        gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
+        
+    }
+
+    return;
+}
+
 
 
 int main(void) {
@@ -418,8 +511,10 @@ int main(void) {
     System_init();
     Board_init();
 
-    /* This task is created at highest priority, it should create more tasks and
-     * then delete itself */
+
+
+    /* Create this at 2nd highest priority to initialize everything
+     * the MMWave_execute task must have a higher priority than this */
     gMainTask = xTaskCreateStatic(
             init_task,   /* Pointer to the function that implements the task. */
             "init task", /* Text name for the task.  This is to facilitate debugging
@@ -435,7 +530,7 @@ int main(void) {
 
     /* Start the scheduler to start the tasks executing. */
     vTaskStartScheduler();
-
+    while(1)__asm__("wfi");
     /* The following line should never be reached because vTaskStartScheduler()
        will only return if there was not enough FreeRTOS heap memory available to
        create the Idle and (if configured) Timer tasks.  Heap management, and
