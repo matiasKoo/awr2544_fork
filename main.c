@@ -512,8 +512,8 @@ void btn_isr(void *arg){
 
 void chirp_isr(void *arg){
     int32_t err;
-    volatile uint64_t const *gAdcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
-    printf("%llu\n", *gAdcAddr);
+    volatile uint64_t const *adcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
+    printf("%llu\n", *adcAddr);
     return;
 }
 
