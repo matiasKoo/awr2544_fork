@@ -52,30 +52,41 @@
 #include <ti/control/mmwave/mmwave.h>
 #include <ti/control/mmwavelink/mmwavelink.h>
 #include <ti/control/mmwavelink/include/rl_sensor.h>
-#define MAIN_TASK_PRI  (configMAX_PRIORITIES-2)
-#define EXEC_TASK_PRI  (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
 
+#define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
+#define MAIN_TASK_PRI   (configMAX_PRIORITIES-3)
+#define INIT_TASK_PRI   (configMAX_PRIORITIES-2)
 #define EXEC_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 #define MAIN_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 #define DPC_TASK_SIZE   (4096U/sizeof(configSTACK_DEPTH_TYPE))
+#define INIT_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 
-#define SLEEP_S 30
 
+StackType_t gInitTaskStack[INIT_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gDpcTaskStack[DPC_TASK_SIZE] __attribute__((aligned(32)));
 
+StaticTask_t gInitTaskObj;
 StaticTask_t gMainTaskObj;
 StaticTask_t gExecTaskObj;
 StaticTask_t gDpcTaskObj;
 
+TaskHandle_t gInitTask;
 TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
 TaskHandle_t gDpcTask;
 
-void test_isr(void*);
+void btn_isr(void*);
+static void init_task(void*);
+static void exec_task(void*);
+static void main_task(void*);
+static inline void fail(void);
+void init_butt(void);
 
+
+/* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
 
 uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
@@ -84,10 +95,12 @@ MMWave_Handle gMmwHandle;
 ADCBuf_Handle gADCHandle;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
-static inline void fail(){
+static inline void fail(void){
     DebugP_log("Failed\r\n");
+    DebugP_assertNoLog(0);
     while(1) __asm__ volatile("wfi");
 }
+
 
 int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
     DebugP_log("MMWave callback called\r\n");
@@ -105,6 +118,7 @@ void Mmw_printErr(const char *s, int32_t err){
     DebugP_log("ERROR: %s: ", s);
     DebugP_log("Error level %s, mmWaveErr: %hd, subSysErr: %hd\r\n", (errLvl == MMWave_ErrorLevel_ERROR ? "Error" : "Warning"), mmwErr, subErr);
 }
+
 
 void init_butt(){
     int32_t ret = 0;
@@ -139,7 +153,7 @@ void init_butt(){
     HwiP_Params_init(&params);
     params.intNum = intrnum;
     params.args = (void*)pinnum;
-    params.callback = &test_isr;
+    params.callback = &btn_isr;
     ret = HwiP_construct(&hwiobj, &params);
     if(ret != 0){ DebugP_log("Failed to construct\r\n");}
     HwiP_enable();
@@ -390,9 +404,9 @@ static void exec_task(void *args){
  *  - create profile(s) 
  *  - add chirp configuration
  *  - configure the device to use profile(s)
- *  - start the sensor
- *  - sleep for SLEEP_S
- *  - stop the sensor
+ *  - create the main_task
+ *  - and finally terminate itself
+ *  
  */
 static void init_task(void *args){
     int32_t err = 0;
@@ -402,8 +416,6 @@ static void init_task(void *args){
     Board_driversOpen();
 
     DebugP_log("Init task launched\r\n");
-
-    init_butt();
 
     /* init adc and mmwave */
     init_adc();
@@ -445,6 +457,7 @@ static void init_task(void *args){
     MMWave_ChirpHandle chirp = add_chirp(gMmwProfiles[0], &err);
     if(chirp == NULL){
         Mmw_printErr("Failed to add chirp", err);
+        fail();
     }
 
 
@@ -458,9 +471,48 @@ static void init_task(void *args){
 
     DebugP_log("Configured!\r\n");
 
-    /* TODO: Move this to a separate task, init shouldn't handle it
-     * but it's fine for now */
+    DebugP_log("Creating main task...\r\n");
+
+    gMainTask = xTaskCreateStatic(
+        main_task,      /*  Pointer to the function that implements the task. */
+        "main task",    /*  Text name for the task.  This is to facilitate debugging
+                            only. */
+        MAIN_TASK_SIZE, /*  Stack depth in units of StackType_t typically uint32_t
+                            on 32b CPUs */
+        NULL,           /*  We are not using the task parameter. */
+        MAIN_TASK_PRI,  /*  task priority, 0 is lowest priority,
+                            configMAX_PRIORITIES-1 is highest */
+        gMainTaskStack, /*  pointer to stack base */
+        &gMainTaskObj); /*  pointer to statically allocated task object memory */
+    configASSERT(gMainTask != NULL);
+
+    DebugP_log("Done. バイバイ\r\n");
+
+    vTaskDelete(NULL);
+}
+
+void btn_isr(void *arg){
+    uint32_t pending;
+    uint32_t pin = (uint32_t)arg;
+    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
+
+    pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
+    GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
+    if(pending){
+        gState = gState ? 0 : 1;
+        gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
+        
+    }
+
+}
+
+
+static void main_task(void *args){
+    int32_t err = 0;
+    int32_t ret = 0;
     static bool started = 0;
+    init_butt();
+    DebugP_log("Press down on SW2 to toggle the radar on/off\r\n");
     while(1){
         if(gState == 1 && started == 0){
             ret = start_mmw(&err);
@@ -484,26 +536,7 @@ static void init_task(void *args){
         ClockP_usleep(50000);
 
     }
-
-    while (1) __asm__ volatile("wfi");
 }
-
-void test_isr(void *arg){
-    uint32_t pending;
-    uint32_t pin = (uint32_t)arg;
-    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
-
-    pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
-    GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
-    if(pending){
-        gState = gState ? 0 : 1;
-        gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
-        
-    }
-
-    return;
-}
-
 
 
 int main(void) {
@@ -511,26 +544,24 @@ int main(void) {
     System_init();
     Board_init();
 
-
-
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
-    gMainTask = xTaskCreateStatic(
+    gInitTask = xTaskCreateStatic(
             init_task,   /* Pointer to the function that implements the task. */
             "init task", /* Text name for the task.  This is to facilitate debugging
                             only. */
-            MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
+            INIT_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
                                on 32b CPUs */
             NULL,           /* We are not using the task parameter. */
-            MAIN_TASK_PRI,  /* task priority, 0 is lowest priority,
+            INIT_TASK_PRI,  /* task priority, 0 is lowest priority,
                                configMAX_PRIORITIES-1 is highest */
-            gMainTaskStack, /* pointer to stack base */
-            &gMainTaskObj); /* pointer to statically allocated task object memory */
-    configASSERT(gMainTask != NULL);
+            gInitTaskStack, /* pointer to stack base */
+            &gInitTaskObj); /* pointer to statically allocated task object memory */
+    configASSERT(gInitTask != NULL);
 
     /* Start the scheduler to start the tasks executing. */
     vTaskStartScheduler();
-    while(1)__asm__("wfi");
+
     /* The following line should never be reached because vTaskStartScheduler()
        will only return if there was not enough FreeRTOS heap memory available to
        create the Idle and (if configured) Timer tasks.  Heap management, and
