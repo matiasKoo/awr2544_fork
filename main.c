@@ -191,6 +191,7 @@ void init_adc(){
     ADCBufParams.chirpThresholdPing = 1;
     ADCBufParams.chirpThresholdPong = 1;
     ADCBufParams.continousMode = 0;
+    ADCBufParams.source = ADCBUF_SOURCE_DFE;
 
     gADCHandle = ADCBuf_open(0, &ADCBufParams);
 
@@ -207,6 +208,7 @@ void init_adc(){
     datafmt.sampleInterleave = 0;
     datafmt.channelInterleave = 1; // apparently non-interleaved might be the only valid option for AWR2544
     chanconf.channel = 0;
+    chanconf.offset = 0;
 
     ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
     if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n"); return;}
@@ -304,7 +306,7 @@ static void create_profiles(int32_t *err){
     profileCfg.adcStartTimeConst = 700;     // 7 usec
     profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 256;
+    profileCfg.numAdcSamples = 2;
     profileCfg.digOutSampleRate = 30000;
     profileCfg.rxGain = 164;
 
@@ -491,6 +493,7 @@ static void init_task(void *args){
     vTaskDelete(NULL);
 }
 
+
 void btn_isr(void *arg){
     uint32_t pending;
     uint32_t pin = (uint32_t)arg;
@@ -507,12 +510,31 @@ void btn_isr(void *arg){
 }
 
 
+void chirp_isr(void *arg){
+    int32_t err;
+    volatile uint64_t const *gAdcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
+    printf("%llu\n", *gAdcAddr);
+    return;
+}
+
+
 static void main_task(void *args){
     int32_t err = 0;
     int32_t ret = 0;
     static bool started = 0;
+
+    HwiP_Object hwiobj;
+    HwiP_Params params;
+    HwiP_Params_init(&params);
+    params.intNum = 155; // DFE_CHIRP_CYCLE_START
+    params.args = NULL;
+    params.callback = &chirp_isr;
+    ret = HwiP_construct(&hwiobj, &params);
+    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+    
     init_butt();
     DebugP_log("Press down on SW2 to toggle the radar on/off\r\n");
+
     while(1){
         if(gState == 1 && started == 0){
             ret = start_mmw(&err);
