@@ -4,7 +4,7 @@ Debug/*
 *.bin
 *.out
 *.rprc
-/.settings
+.settings/
 .ccsproject
 .cproject
 .project
