@@ -403,8 +403,19 @@ static void exec_task(void *args){
 
 
 void hwa_callback(uint32_t threadIdx, void *args){
+    int32_t ret = 0;
+    HwiP_disable();
     DebugP_log("Something was processed\r\n");
+    HWA_MemInfo meminfo = {0};
+    ret = HWA_getHWAMemInfo(gHwaHandle[0], &meminfo);
+    if(ret != 0){
+        DebugP_log("failed to get HWA mem info %d\r\n", ret);
+    }else{
+        int16_t *out = (int16_t*)((uint8_t)meminfo.baseAddress + (meminfo.bankSize * 2));
+        printf("Something at output base %hu\r\n", *out);
+    }
     gHwaTriggered = 0;
+    HwiP_enable();
 }
 
 
@@ -438,10 +449,28 @@ static void init_task(void *args){
     // HWA will have been (hopefully) opened by Drivers_open()
     // so for now just set the callback function, source address and enable it
     DebugP_log("Configuring HWA...\r\n");
-    HWA_enableDoneInterrupt(gHwaHandle[0], 0, hwa_callback, NULL);
-    HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
-    HWA_enable(gHwaHandle[0], 1);
-    HWA_reset(gHwaHandle[0]);
+    
+    ret = HWA_enableDoneInterrupt(gHwaHandle[0], 0, hwa_callback, NULL);
+    if(ret != 0){
+        DebugP_log("failed to enable done interrupt %d\r\n", ret);
+        fail();
+    }
+    
+    ret = HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
+    if(ret != 0){
+        DebugP_log("failed to set hwa source address %d\r\n", ret);
+    }
+
+    ret = HWA_enable(gHwaHandle[0], 1);
+    if(ret != 0){
+        DebugP_log("failed to enable HWA %d\r\n", ret);
+    }
+    
+    ret = HWA_reset(gHwaHandle[0]);
+    if(ret != 0){
+        DebugP_log("failed to reset HWA %d\r\n", ret);
+    }
+
     DebugP_log("Done\r\n");
 
     DebugP_log("Synchronizing...\r\n");
