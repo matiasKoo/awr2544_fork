@@ -306,7 +306,7 @@ static void create_profiles(int32_t *err){
     profileCfg.adcStartTimeConst = 700;     // 7 usec
     profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 128;     // to match TRM example for HWA
+    profileCfg.numAdcSamples = 256;     // to match TRM example for HWA
     profileCfg.digOutSampleRate = 30000;
     profileCfg.rxGain = 164;
 
