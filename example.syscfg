@@ -56,13 +56,17 @@ gpio2.GPIO.$assign = "GPIO2";
 
 hwa1.$name                            = "CONFIG_HWA0";
 hwa1.configParamset[0].$name          = "HWA_PARAMSET_CONFIG0";
-hwa1.configParamset[0].accelMode      = "HWA_ACCELMODE_FFT";
-hwa1.configParamset[0].fftEn          = true;
 hwa1.configParamset[0].srcRealComplex = "HWA_SAMPLES_FORMAT_REAL";
 hwa1.configParamset[0].windowSymm     = true;
 hwa1.configParamset[0].windowMode     = "HWA_WINDOW_MODE_16BITREAL";
 hwa1.configParamset[0].triggerMode    = "HWA_TRIG_MODE_SOFTWARE";
 hwa1.configParamset[0].srcAcnt        = 255;
+hwa1.configParamset[0].dstAcnt        = 255;
+hwa1.configParamset[0].dstAIdx        = 2;
+hwa1.configParamset[0].srcAIdx        = 2;
+hwa1.configParamset[0].dstRealComplex = "HWA_SAMPLES_FORMAT_REAL";
+hwa1.configParamset[0].accelMode      = "HWA_ACCELMODE_FFT";
+hwa1.configParamset[0].destAddr       = 16834;
 hwa1.configCommon[0].$name            = "HWA_COMMON_CONFIG0";
 
 qspi1.$name    = "CONFIG_QSPI0";
@@ -79,6 +83,7 @@ qspi1.edmaConfig                   = edma1;
 debug_log.uartLog.edmaConfig       = edma1;
 cbuff1.edmaConfig                  = edma1;
 edma1.regionId                     = 0;
+edma1.initParamSet                 = "TRUE";
 edma1.edmaRmDmaCh[0].$name         = "CONFIG_EDMA_RM0";
 edma1.edmaRmQdmaCh[0].$name        = "CONFIG_EDMA_RM1";
 edma1.edmaRmTcc[0].$name           = "CONFIG_EDMA_RM2";

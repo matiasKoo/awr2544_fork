@@ -85,6 +85,8 @@ static void main_task(void*);
 static inline void fail(void);
 void init_butt(void);
 
+extern int edma_hwa_main(void*);
+
 
 /* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
@@ -403,19 +405,17 @@ static void exec_task(void *args){
 
 
 void hwa_callback(uint32_t threadIdx, void *args){
-    int32_t ret = 0;
-    HwiP_disable();
-    DebugP_log("Something was processed\r\n");
+ /*   int32_t ret = 0;
     HWA_MemInfo meminfo = {0};
     ret = HWA_getHWAMemInfo(gHwaHandle[0], &meminfo);
     if(ret != 0){
         DebugP_log("failed to get HWA mem info %d\r\n", ret);
     }else{
-        int16_t *out = (int16_t*)((uint8_t)meminfo.baseAddress + (meminfo.bankSize * 2));
-        printf("Something at output base %hu\r\n", *out);
-    }
+        volatile uint64_t *out = (volatile uint64_t*)((uint8_t)meminfo.baseAddress + 16384);
+        printf("Something at output base %llu\r\n", *out);
+    }*/
+    HWA_enable(gHwaHandle[0], 0);
     gHwaTriggered = 0;
-    HwiP_enable();
 }
 
 
@@ -436,8 +436,8 @@ static void init_task(void *args){
     int32_t err = 0;
     int32_t ret = 0;
 
-    Drivers_open();
-    Board_driversOpen();
+   Drivers_open();
+    Board_driversOpen(); 
 
     DebugP_log("Init task launched\r\n");
 
@@ -449,28 +449,13 @@ static void init_task(void *args){
     // HWA will have been (hopefully) opened by Drivers_open()
     // so for now just set the callback function, source address and enable it
     DebugP_log("Configuring HWA...\r\n");
-    
+
     ret = HWA_enableDoneInterrupt(gHwaHandle[0], 0, hwa_callback, NULL);
     if(ret != 0){
         DebugP_log("failed to enable done interrupt %d\r\n", ret);
         fail();
     }
-    
-    ret = HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
-    if(ret != 0){
-        DebugP_log("failed to set hwa source address %d\r\n", ret);
-    }
-
-    ret = HWA_enable(gHwaHandle[0], 1);
-    if(ret != 0){
-        DebugP_log("failed to enable HWA %d\r\n", ret);
-    }
-    
-    ret = HWA_reset(gHwaHandle[0]);
-    if(ret != 0){
-        DebugP_log("failed to reset HWA %d\r\n", ret);
-    }
-
+ 
     DebugP_log("Done\r\n");
 
     DebugP_log("Synchronizing...\r\n");
@@ -563,15 +548,18 @@ void btn_isr(void *arg){
 void chirp_isr(void *arg){
     __unused int32_t err;
     //volatile uint64_t const *adcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-
-
     if(gHwaTriggered){
         return;
     }
-    
-    HWA_reset(gHwaHandle[0]);
-    HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
-    gHwaTriggered = 1;
+
+   // HWA_MemInfo meminfo = {0};
+   // HWA_getHWAMemInfo(gHwaHandle[0], &meminfo);
+   // memcpy((uint16_t*)meminfo.baseAddress, (uint16_t*)gAdcAddr, 255 );
+   // HWA_enable(gHwaHandle[0], 1);
+   // HWA_reset(gHwaHandle[0]);
+   // HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
+   // HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
+   // gHwaTriggered = 1;
 
 
     return;
@@ -625,6 +613,22 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
+
+    //NOTE: remove this or edma dev test will take over
+    gInitTask = xTaskCreateStatic(
+        edma_hwa_main,   /* Pointer to the function that implements the task. */
+        "init task", /* Text name for the task.  This is to facilitate debugging
+                            only. */
+        INIT_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
+                               on 32b CPUs */
+        NULL,           /* We are not using the task parameter. */
+        INIT_TASK_PRI,  /* task priority, 0 is lowest priority,
+                               configMAX_PRIORITIES-1 is highest */
+        gInitTaskStack, /* pointer to stack base */
+        &gInitTaskObj); /* pointer to statically allocated task object memory */
+    configASSERT(gInitTask != NULL);
+    vTaskStartScheduler();
+    while(1)__asm__("wfi");
 
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
