@@ -204,9 +204,9 @@ void init_adc(){
     // These should apparently be 4 byte aligned
     ADCBuf_dataFormat datafmt __attribute__((aligned(4))) = {0};
     ADCBuf_RxChanConf chanconf __attribute__((aligned(4))) = {0};
-    datafmt.adcOutFormat = 1;
+    datafmt.adcOutFormat = 1;       // real
     datafmt.sampleInterleave = 0;
-    datafmt.channelInterleave = 1; // apparently non-interleaved might be the only valid option for AWR2544
+    datafmt.channelInterleave = 1;  // apparently non-interleaved might be the only valid option for AWR2544
     chanconf.channel = 0;
     chanconf.offset = 0;
 
@@ -306,7 +306,7 @@ static void create_profiles(int32_t *err){
     profileCfg.adcStartTimeConst = 700;     // 7 usec
     profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
+    profileCfg.numAdcSamples = 128;     // to match TRM example for HWA
     profileCfg.digOutSampleRate = 30000;
     profileCfg.rxGain = 164;
 
