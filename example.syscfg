@@ -62,7 +62,7 @@ hwa1.configParamset[0].srcRealComplex = "HWA_SAMPLES_FORMAT_REAL";
 hwa1.configParamset[0].windowSymm     = true;
 hwa1.configParamset[0].windowMode     = "HWA_WINDOW_MODE_16BITREAL";
 hwa1.configParamset[0].triggerMode    = "HWA_TRIG_MODE_SOFTWARE";
-hwa1.configParamset[0].mode2x         = true;
+hwa1.configParamset[0].srcAcnt        = 255;
 hwa1.configCommon[0].$name            = "HWA_COMMON_CONFIG0";
 
 qspi1.$name    = "CONFIG_QSPI0";

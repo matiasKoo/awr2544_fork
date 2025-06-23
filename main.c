@@ -88,11 +88,14 @@ void init_butt(void);
 
 /* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
+/* Tracks if the HWA is already processing something */
+volatile bool gHwaTriggered = 0;
 
-uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
+static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
+static uint32_t gAdcAddr;
 
 MMWave_Handle gMmwHandle;
-ADCBuf_Handle gADCHandle;
+ADCBuf_Handle gADCBufHandle;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
 static inline void fail(void){
@@ -184,6 +187,7 @@ void init_mmw(int32_t *err){
 
 void init_adc(){
     int32_t ret = 0;
+    int32_t err = 0;
     ADCBuf_Params ADCBufParams;
     DebugP_log("Initializing ADC...\r\n");
 
@@ -193,9 +197,10 @@ void init_adc(){
     ADCBufParams.continousMode = 0;
     ADCBufParams.source = ADCBUF_SOURCE_DFE;
 
-    gADCHandle = ADCBuf_open(0, &ADCBufParams);
+    gADCBufHandle = ADCBuf_open(0, &ADCBufParams);
+    gAdcAddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
 
-    if (gADCHandle == NULL){
+    if (gADCBufHandle == NULL){
         DebugP_logError("Failed to get ADC Handle\r\n");
     }
 
@@ -210,10 +215,10 @@ void init_adc(){
     chanconf.channel = 0;
     chanconf.offset = 0;
 
-    ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
+    ret = ADCBuf_control(gADCBufHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
     if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n"); return;}
 
-    ret = ADCBuf_control(gADCHandle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
+    ret = ADCBuf_control(gADCBufHandle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
     if(ret != 0){ DebugP_logError("Failed to conf channels\r\n"); return;}
 
     DebugP_log("ADC configured!\r\n");
@@ -371,7 +376,7 @@ int32_t start_mmw(int32_t *err){
 
 void read_adc(){
     int32_t err;
-    volatile uint32_t *addr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
+    volatile uint32_t *addr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
     if(addr == NULL){ 
         DebugP_logError("Failed to get adc address");
         return;
@@ -383,8 +388,8 @@ void read_adc(){
 }
 
 
-static void dpc_task(void *args){
-    int32_t err = 0;
+__unused static void dpc_task(void *args){
+    __unused int32_t err = 0;
     
 }
 
@@ -394,6 +399,12 @@ static void exec_task(void *args){
     while(1){
         MMWave_execute(gMmwHandle, &err);
     }
+}
+
+
+void hwa_callback(uint32_t threadIdx, void *args){
+    DebugP_log("Something was processed\r\n");
+    gHwaTriggered = 0;
 }
 
 
@@ -419,9 +430,19 @@ static void init_task(void *args){
 
     DebugP_log("Init task launched\r\n");
 
-    /* init adc and mmwave */
+    /* init adc and mmwave and hwa */
     init_adc();
     init_mmw(&err);
+
+
+    // HWA will have been (hopefully) opened by Drivers_open()
+    // so for now just set the callback function, source address and enable it
+    DebugP_log("Configuring HWA...\r\n");
+    HWA_enableDoneInterrupt(gHwaHandle[0], 0, hwa_callback, NULL);
+    HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
+    HWA_enable(gHwaHandle[0], 1);
+    HWA_reset(gHwaHandle[0]);
+    DebugP_log("Done\r\n");
 
     DebugP_log("Synchronizing...\r\n");
 
@@ -511,9 +532,19 @@ void btn_isr(void *arg){
 
 
 void chirp_isr(void *arg){
-    int32_t err;
-    volatile uint64_t const *adcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCHandle, 0, &err);
-    printf("%llu\n", *adcAddr);
+    __unused int32_t err;
+    //volatile uint64_t const *adcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+
+
+    if(gHwaTriggered){
+        return;
+    }
+    
+    HWA_reset(gHwaHandle[0]);
+    HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
+    gHwaTriggered = 1;
+
+
     return;
 }
 
