@@ -410,7 +410,7 @@ void hwa_callback(uint32_t threadIdx, void *args){
 
 /* init process goes as follows:
  * 
- *  - initialize both the ADCBuf and MMW peripherals
+ *  - initialize both the ADCBuf, MMW and HWA peripherals
  *  - synchronize mmwavelink
  *  - create the MMWave_execute task
  *  - open the device
