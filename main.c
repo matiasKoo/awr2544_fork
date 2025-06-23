@@ -85,7 +85,7 @@ static void main_task(void*);
 static inline void fail(void);
 void init_butt(void);
 
-extern int edma_hwa_main(void*);
+extern void edma_hwa_main(void*);
 
 
 /* Tracks the current (intended) state of the RSS */
@@ -622,7 +622,7 @@ int main(void) {
         INIT_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
                                on 32b CPUs */
         NULL,           /* We are not using the task parameter. */
-        INIT_TASK_PRI,  /* task priority, 0 is lowest priority,
+        configMAX_PRIORITIES-1,  /* task priority, 0 is lowest priority,
                                configMAX_PRIORITIES-1 is highest */
         gInitTaskStack, /* pointer to stack base */
         &gInitTaskObj); /* pointer to statically allocated task object memory */

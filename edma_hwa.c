@@ -13,6 +13,7 @@
 #define A_COUNT (BUFF_SIZE * sizeof(uint16_t))
 
 
+static SemaphoreP_Object gEdmaTestDoneSem;
 
 
 
@@ -20,12 +21,19 @@
 static uint16_t srcBuff[BUFF_SIZE] = {0};
 static uint16_t dstBuff[BUFF_SIZE] = {0};
 
+void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
+    SemaphoreP_Object *obj = (SemaphoreP_Object*)args;
+    DebugP_assert(obj != NULL);
+    SemaphoreP_post(obj);
+}
 
 void test_transfer(){
     uint32_t base, region;
     uint8_t *src, *dst;
     int32_t ret = 0;
     EDMACCPaRAMEntry edmaparam;
+    Edma_IntrObject     intrObj;
+
     uint32_t ch, tcc, param;
 
     base = EDMA_getBaseAddr(gEdmaHandle[0]);
@@ -65,12 +73,26 @@ void test_transfer(){
     edmaparam.srcBIdxExt = (int8_t)EDMA_PARAM_BIDX_EXT(A_COUNT);
     edmaparam.destBIdxExt = (int8_t)EDMA_PARAM_BIDX_EXT(A_COUNT);
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
+    EDMA_setPaRAM(base, param, &edmaparam);
 
-   ret= EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
+    /* Register interrupt */
+    intrObj.tccNum = tcc;
+    intrObj.cbFxn  = &EDMA_regionIsrFxn;
+    intrObj.appData = (void *) &gEdmaTestDoneSem;
+    ret = EDMA_registerIntr(gEdmaHandle[0], &intrObj);
+    DebugP_assert(ret == SystemP_SUCCESS);
+
+    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
+    SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
+    
+    for(int i = 0; i < BUFF_SIZE; ++i){
+        printf("%#x ",dstBuff[i]);
+    }
 
 }
 
-int edma_hwa_main(void *args){
+
+void edma_hwa_main(void *args){
     Drivers_open();
     Board_driversOpen();
     srand(10);
@@ -80,8 +102,6 @@ int edma_hwa_main(void *args){
     }
     test_transfer();
 
-    for(int i = 0; i < BUFF_SIZE; ++i){
-        printf("%#x ",dstBuff[i]);
-    }
+
     while(1)__asm__("wfi");
 }
