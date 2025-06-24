@@ -87,6 +87,12 @@ void init_butt(void);
 
 extern void edma_hwa_main(void*);
 
+/* Must be an even number above 2 */
+#define NUM_SAMPLES 256
+#define NUM_CHIRPS  2
+#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * sizeof(uint16_t))
+static uint8_t gSampleBuff[SAMPLE_BUFF_SIZE];
+
 
 /* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
@@ -311,9 +317,10 @@ static void create_profiles(int32_t *err){
     profileCfg.adcStartTimeConst = 700;     // 7 usec
     profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 2;
+    profileCfg.numAdcSamples = NUM_SAMPLES;
     profileCfg.digOutSampleRate = 30000;
     profileCfg.rxGain = 164;
+    profileCfg.freqSlopeConst = 932; // 44,99MHz/us
 
     gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
 }
@@ -578,7 +585,6 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
-    
 #ifdef EDMA_TEST
     //NOTE: remove this or edma dev test will take over
     gMainTask = xTaskCreateStatic(
@@ -594,7 +600,7 @@ int main(void) {
         &gMainTaskObj); /* pointer to statically allocated task object memory */
     configASSERT(gMainTask != NULL);
     vTaskStartScheduler();
-    while(1)__asm__("wfi");
+    DebugP_assertNoLog(0);
 #else
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
@@ -612,5 +618,4 @@ int main(void) {
 
     DebugP_assertNoLog(0);
 #endif
-    return 0;
 }
