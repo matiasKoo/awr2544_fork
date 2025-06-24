@@ -89,9 +89,11 @@ extern void edma_hwa_main(void*);
 
 /* Must be an even number above 2 */
 #define NUM_SAMPLES 256
-#define NUM_CHIRPS  2
-#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * sizeof(uint16_t))
+#define NUM_CHIRPS  1
+#define SAMPLE_SIZE (sizeof(uint16_t))
+#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * SAMPLE_SIZE)
 static uint8_t gSampleBuff[SAMPLE_BUFF_SIZE];
+
 
 
 /* Tracks the current (intended) state of the RSS */
@@ -411,7 +413,7 @@ static void exec_task(void *args){
 
 /* init process goes as follows:
  * 
- *  - initialize both the ADCBuf, MMW and HWA peripherals
+ *  - initialize both the ADCBuf and MMW peripherals
  *  - synchronize mmwavelink
  *  - create the MMWave_execute task
  *  - open the device
@@ -522,9 +524,12 @@ void btn_isr(void *arg){
     pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
     GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
     if(pending){
-        gState = gState ? 0 : 1;
+    /*    gState = gState ? 0 : 1;
         gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
-        
+      */
+      for(int i = 0; i < SAMPLE_BUFF_SIZE / SAMPLE_SIZE; ++i){
+        printf("%hu,\n",*(((uint16_t*)gSampleBuff)+i));
+      }  
     }
 
 }
@@ -532,8 +537,13 @@ void btn_isr(void *arg){
 
 void chirp_isr(void *arg){
     int32_t err;
-    volatile uint32_t const *adcAddr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    printf("%#x\r\n", *adcAddr);
+    gState = 0;
+
+    volatile uint8_t const *adcAddr = (volatile uint8_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+    for(int i = 0; i < SAMPLE_BUFF_SIZE; ++i){
+        gSampleBuff[i] = adcAddr[i];
+    }
+    DebugP_log("Data has been copied\r\n");
     return;
 }
 
@@ -553,7 +563,8 @@ static void main_task(void *args){
     if(ret != 0){ DebugP_log("Failed to construct\r\n");}
     
     init_butt();
-    DebugP_log("Press down on SW2 to toggle the radar on/off\r\n");
+    //DebugP_log("Press down on SW2 to toggle the radar on/off\r\n");
+    gState = 1;
 
     while(1){
         if(gState == 1 && started == 0){
