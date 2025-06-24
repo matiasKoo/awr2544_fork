@@ -90,8 +90,6 @@ extern void edma_hwa_main(void*);
 
 /* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
-/* Tracks if the HWA is already processing something */
-volatile bool gHwaTriggered = 0;
 
 static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
 static uint32_t gAdcAddr;
@@ -313,7 +311,7 @@ static void create_profiles(int32_t *err){
     profileCfg.adcStartTimeConst = 700;     // 7 usec
     profileCfg.rampEndTime = 2081;	    // 20,81 usec
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = 256;     // to match TRM example for HWA
+    profileCfg.numAdcSamples = 2;
     profileCfg.digOutSampleRate = 30000;
     profileCfg.rxGain = 164;
 
@@ -404,21 +402,6 @@ static void exec_task(void *args){
 }
 
 
-void hwa_callback(uint32_t threadIdx, void *args){
- /*   int32_t ret = 0;
-    HWA_MemInfo meminfo = {0};
-    ret = HWA_getHWAMemInfo(gHwaHandle[0], &meminfo);
-    if(ret != 0){
-        DebugP_log("failed to get HWA mem info %d\r\n", ret);
-    }else{
-        volatile uint64_t *out = (volatile uint64_t*)((uint8_t)meminfo.baseAddress + 16384);
-        printf("Something at output base %llu\r\n", *out);
-    }*/
-    HWA_enable(gHwaHandle[0], 0);
-    gHwaTriggered = 0;
-}
-
-
 /* init process goes as follows:
  * 
  *  - initialize both the ADCBuf, MMW and HWA peripherals
@@ -450,11 +433,6 @@ static void init_task(void *args){
     // so for now just set the callback function, source address and enable it
     DebugP_log("Configuring HWA...\r\n");
 
-    ret = HWA_enableDoneInterrupt(gHwaHandle[0], 0, hwa_callback, NULL);
-    if(ret != 0){
-        DebugP_log("failed to enable done interrupt %d\r\n", ret);
-        fail();
-    }
  
     DebugP_log("Done\r\n");
 
@@ -546,22 +524,9 @@ void btn_isr(void *arg){
 
 
 void chirp_isr(void *arg){
-    __unused int32_t err;
-    //volatile uint64_t const *adcAddr = (volatile uint64_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    if(gHwaTriggered){
-        return;
-    }
-
-   // HWA_MemInfo meminfo = {0};
-   // HWA_getHWAMemInfo(gHwaHandle[0], &meminfo);
-   // memcpy((uint16_t*)meminfo.baseAddress, (uint16_t*)gAdcAddr, 255 );
-   // HWA_enable(gHwaHandle[0], 1);
-   // HWA_reset(gHwaHandle[0]);
-   // HWA_setSourceAddress(gHwaHandle[0], 0, gAdcAddr);
-   // HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
-   // gHwaTriggered = 1;
-
-
+    int32_t err;
+    volatile uint32_t const *adcAddr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+    printf("%#x\r\n", *adcAddr);
     return;
 }
 
@@ -613,46 +578,39 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
-
+    
+#ifdef EDMA_TEST
     //NOTE: remove this or edma dev test will take over
-    gInitTask = xTaskCreateStatic(
+    gMainTask = xTaskCreateStatic(
         edma_hwa_main,   /* Pointer to the function that implements the task. */
-        "init task", /* Text name for the task.  This is to facilitate debugging
+        "edma task", /* Text name for the task.  This is to facilitate debugging
                             only. */
-        INIT_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
+        MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
                                on 32b CPUs */
         NULL,           /* We are not using the task parameter. */
-        configMAX_PRIORITIES-1,  /* task priority, 0 is lowest priority,
+        MAIN_TASK_PRI,  /* task priority, 0 is lowest priority,
                                configMAX_PRIORITIES-1 is highest */
-        gInitTaskStack, /* pointer to stack base */
-        &gInitTaskObj); /* pointer to statically allocated task object memory */
-    configASSERT(gInitTask != NULL);
+        gMainTaskStack, /* pointer to stack base */
+        &gMainTaskObj); /* pointer to statically allocated task object memory */
+    configASSERT(gMainTask != NULL);
     vTaskStartScheduler();
     while(1)__asm__("wfi");
-
+#else
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
-    gInitTask = xTaskCreateStatic(
-            init_task,   /* Pointer to the function that implements the task. */
-            "init task", /* Text name for the task.  This is to facilitate debugging
-                            only. */
-            INIT_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
-                               on 32b CPUs */
-            NULL,           /* We are not using the task parameter. */
-            INIT_TASK_PRI,  /* task priority, 0 is lowest priority,
-                               configMAX_PRIORITIES-1 is highest */
-            gInitTaskStack, /* pointer to stack base */
-            &gInitTaskObj); /* pointer to statically allocated task object memory */
+   gInitTask = xTaskCreateStatic(
+            init_task,   
+            "init task", 
+            INIT_TASK_SIZE,
+            NULL,           
+            INIT_TASK_PRI,  
+            gInitTaskStack, 
+            &gInitTaskObj); 
     configASSERT(gInitTask != NULL);
 
-    /* Start the scheduler to start the tasks executing. */
     vTaskStartScheduler();
 
-    /* The following line should never be reached because vTaskStartScheduler()
-       will only return if there was not enough FreeRTOS heap memory available to
-       create the Idle and (if configured) Timer tasks.  Heap management, and
-       techniques for trapping heap exhaustion, are described in the book text. */
     DebugP_assertNoLog(0);
-
+#endif
     return 0;
 }

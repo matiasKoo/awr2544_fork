@@ -1,9 +1,13 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <drivers/edma.h>
 #include <drivers/hwa.h>
 #include <drivers/uart.h>
-#include <stdio.h>
-#include <stdlib.h>
+
 #include <kernel/dpl/DebugP.h>
+#include <kernel/dpl/SemaphoreP.h>
+
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
 #include "ti_drivers_open_close.h"
@@ -22,9 +26,9 @@ static uint16_t srcBuff[BUFF_SIZE] = {0};
 static uint16_t dstBuff[BUFF_SIZE] = {0};
 
 void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
-    SemaphoreP_Object *obj = (SemaphoreP_Object*)args;
-    DebugP_assert(obj != NULL);
-    SemaphoreP_post(obj);
+    SemaphoreP_Object *semobj = (SemaphoreP_Object*)args;
+    DebugP_assert(semobj != NULL);
+    SemaphoreP_post(semobj);
 }
 
 void test_transfer(){
@@ -75,12 +79,17 @@ void test_transfer(){
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
     EDMA_setPaRAM(base, param, &edmaparam);
 
+    ret = SemaphoreP_constructBinary(&gEdmaTestDoneSem, 0);
+    DebugP_assert(ret == 0);
     /* Register interrupt */
     intrObj.tccNum = tcc;
     intrObj.cbFxn  = &EDMA_regionIsrFxn;
     intrObj.appData = (void *) &gEdmaTestDoneSem;
     ret = EDMA_registerIntr(gEdmaHandle[0], &intrObj);
     DebugP_assert(ret == SystemP_SUCCESS);
+
+
+
 
     EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
     SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
