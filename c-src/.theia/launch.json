@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "empty-freertos-mmwave",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "empty-freertos-mmwave",
+                "resourceId": "/empty-freertos-mmwave"
+            },
+            "connections": [
+                {
+                    "name": "Texas Instruments XDS110 USB Debug Probe",
+                    "cores": [
+                        {
+                            "name": "Cortex_R5_0",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues>\n\n  <property id=\"ResetOnRestart\">\n    <curValue>1</curValue>\n  </property>\n\n  <property id=\"UseLegacyStopMode\">\n    <curValue>0</curValue>\n  </property>\n\n  <property id=\"AutoRunToLabelOnReset\">\n    <curValue>1</curValue>\n  </property>\n\n  <property id=\"AutoResetOnConnect\">\n    <curValue>1</curValue>\n  </property>\n\n</PropertyValues>\n"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
