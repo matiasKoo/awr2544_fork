@@ -36,4 +36,5 @@ int32_t adcbuf_init(ADCBuf_Handle handle){
     if(ret != 0){ DebugP_logError("Failed to conf channels\r\n"); return ret; }
 
     DebugP_log("ADC configured!\r\n");
+    return 0;
 }
