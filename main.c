@@ -288,7 +288,7 @@ static void init_task(void *args){
         fail();
     }
 
-    ret = mmw_config(gMmwHandle, &gMmwProfiles, &err);
+    ret = mmw_config(gMmwHandle, gMmwProfiles, &err);
     if (ret != 0){
         mmw_printerr("Failed to configure", err);
         fail();
