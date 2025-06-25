@@ -14,10 +14,10 @@ int32_t mmw_open(MMWave_Handle, int32_t *err);
 
 /* Configure the MMWave device
  * NOTE: Currently only profiles[0] will be configured 
- * profile[1]-[3] will be set to NULL 
+ * profiles[1]-[MMWAVE_MAX_PROFILE] will be set to NULL 
  * returns 0 on success, <0 otherwise
  * err contains the specific error code */
-int32_t mmw_config(MMWave_Handle handle, MMWave_ProfileHandle profiles[MMWAVE_MAX_PROFILE], int32_t *err);
+int32_t mmw_config(MMWave_Handle handle, MMWave_ProfileHandle profiles[static MMWAVE_MAX_PROFILE], int32_t *err);
 
 /* Start the MMWave device 
  * the device will start outputting ADC data after this has been called */
