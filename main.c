@@ -30,30 +30,36 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* TI Header files */
 #include <stdlib.h>
-#include <kernel/dpl/DebugP.h>
+
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
-
-#include <stdlib.h>
 #include "ti_drivers_open_close.h"
 #include "ti_board_open_close.h"
+
 #include <drivers/uart.h>
 #include <drivers/adcbuf.h>
 #include <drivers/hwa.h>
+
 #include <kernel/dpl/AddrTranslateP.h>
 #include <kernel/dpl/HwiP.h>
-
+#include <kernel/dpl/DebugP.h>
 
 #include <ti/common/syscommon.h>
 #include <ti/control/mmwave/mmwave.h>
 #include <ti/control/mmwavelink/mmwavelink.h>
 #include <ti/control/mmwavelink/include/rl_sensor.h>
 
-#define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     //priority of this should be set to highest availabe
+/* Project header files */
+#include <mmw.h>
+#include <adcbuf.h>
+
+
+/* Task related macros */
+#define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     // must be higher than INIT_TASK_PRI
 #define MAIN_TASK_PRI   (configMAX_PRIORITIES-3)
 #define INIT_TASK_PRI   (configMAX_PRIORITIES-2)
 #define EXEC_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
@@ -61,8 +67,14 @@
 #define DPC_TASK_SIZE   (4096U/sizeof(configSTACK_DEPTH_TYPE))
 #define INIT_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
+/* Project related macros */
+#define NUM_SAMPLES 256
+#define NUM_CHIRPS  1
+#define SAMPLE_SIZE (sizeof(uint16_t))
+#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * SAMPLE_SIZE)
 
 
+/* Task related global variables */
 StackType_t gInitTaskStack[INIT_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StackType_t gExecTaskStack[EXEC_TASK_SIZE] __attribute__((aligned(32)));
@@ -78,48 +90,35 @@ TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
 TaskHandle_t gDpcTask;
 
-/* Move these to mmw.h */
-extern void mmw_printerr(const char *, int32_t);
-extern int32_t mmw_open(MMWave_Handle, int32_t*);
-MMWave_ProfileHandle mmw_create_profile(MMWave_Handle handle, int32_t *err);
-MMWave_ChirpHandle mmw_add_chirp(MMWave_ProfileHandle profile, int32_t *err);
-int32_t mmw_config(MMWave_Handle handle, MMWave_ProfileHandle *profiles,  int32_t *err);
-MMWave_Handle mmw_init(int32_t *err);
-int32_t mmw_start(MMWave_Handle handle, int32_t *err);
 
-/* and these to adcbuf.h */
-void adcbuf_init(ADCBuf_Handle handle);
-
-/* isr */
+/* == Function Declarations == */
+/* ISRs */
 void btn_isr(void*);
 void chirp_isr(void*);
 
-/* tasks */
+/* Tasks */
 static void init_task(void*);
 static void exec_task(void*);
 static void main_task(void*);
 
-/* other stuff*/
+/* Other functions */
 static inline void fail(void);
 void init_butt(void);
 
+/* TODO: move this in some header file*/
 extern void edma_hwa_main(void*);
 
-/* Must be an even number above 2 */
-#define NUM_SAMPLES 256
-#define NUM_CHIRPS  1
-#define SAMPLE_SIZE (sizeof(uint16_t))
-#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * SAMPLE_SIZE)
 
-
-/* Tracks the current (intended) state of the RSS */
-volatile bool gState = 0;
-
-static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
-
+/* == Global Variables == */
+/* Handles */
 MMWave_Handle gMmwHandle = NULL;
 ADCBuf_Handle gADCBufHandle = NULL;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
+
+/* Rest of them */
+volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
+static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
+
 
 static inline void fail(void){
     DebugP_log("Failed\r\n");
