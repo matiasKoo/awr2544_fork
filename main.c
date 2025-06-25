@@ -78,10 +78,28 @@ TaskHandle_t gMainTask;
 TaskHandle_t gExecTask;
 TaskHandle_t gDpcTask;
 
+/* Move these to mmw.h */
+extern void mmw_printerr(const char *, int32_t);
+extern int32_t mmw_open(MMWave_Handle, int32_t*);
+MMWave_ProfileHandle mmw_create_profile(MMWave_Handle handle, int32_t *err);
+MMWave_ChirpHandle mmw_add_chirp(MMWave_ProfileHandle profile, int32_t *err);
+int32_t mmw_config(MMWave_Handle handle, MMWave_ProfileHandle *profiles,  int32_t *err);
+MMWave_Handle mmw_init(int32_t *err);
+int32_t mmw_start(MMWave_Handle handle, int32_t *err);
+
+/* and these to adcbuf.h */
+void adcbuf_init(ADCBuf_Handle handle);
+
+/* isr */
 void btn_isr(void*);
+void chirp_isr(void*);
+
+/* tasks */
 static void init_task(void*);
 static void exec_task(void*);
 static void main_task(void*);
+
+/* other stuff*/
 static inline void fail(void);
 void init_butt(void);
 
@@ -92,42 +110,21 @@ extern void edma_hwa_main(void*);
 #define NUM_CHIRPS  1
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * NUM_SAMPLES * SAMPLE_SIZE)
-static uint8_t gSampleBuff[SAMPLE_BUFF_SIZE];
-
 
 
 /* Tracks the current (intended) state of the RSS */
 volatile bool gState = 0;
 
 static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
-static uint32_t gAdcAddr;
 
-MMWave_Handle gMmwHandle;
-ADCBuf_Handle gADCBufHandle;
+MMWave_Handle gMmwHandle = NULL;
+ADCBuf_Handle gADCBufHandle = NULL;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
 static inline void fail(void){
     DebugP_log("Failed\r\n");
     DebugP_assertNoLog(0);
     while(1) __asm__ volatile("wfi");
-}
-
-
-int32_t Mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
-    DebugP_log("MMWave callback called\r\n");
-    DebugP_log("devidx: %d, msgId: %u, sbId: %u, sbLen: %u\r\n", devIdx, msgId, sbId, sbLen);
-    return 0;
-}
-
-
-void Mmw_printErr(const char *s, int32_t err){
-    int16_t mmwErr;
-    int16_t subErr;
-    MMWave_ErrorLevel errLvl;
-
-    MMWave_decodeError(err, &errLvl, &mmwErr, &subErr);
-    DebugP_log("ERROR: %s: ", s);
-    DebugP_log("Error level %s, mmWaveErr: %hd, subSysErr: %hd\r\n", (errLvl == MMWave_ErrorLevel_ERROR ? "Error" : "Warning"), mmwErr, subErr);
 }
 
 
@@ -172,241 +169,54 @@ void init_butt(){
 }
 
 
-void init_mmw(int32_t *err){
-    MMWave_InitCfg initCfg;
-    memset(&initCfg, 0, sizeof(initCfg));
-
-    initCfg.domain = MMWave_Domain_MSS;
-    initCfg.eventFxn = Mmw_callback;
-    initCfg.linkCRCCfg.crcBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(CONFIG_CRC0_BASE_ADDR);
-    initCfg.linkCRCCfg.useCRCDriver = 1;
-    initCfg.linkCRCCfg.crcChannel = CRC_CHANNEL_1;
-    initCfg.cfgMode = MMWave_ConfigurationMode_FULL;
-
-    gMmwHandle = MMWave_init(&initCfg, err);
-
-    if(gMmwHandle == NULL){
-        Mmw_printErr("Failed to get handle", *err);
-        fail();
-    }
-
-}
-
-
-void init_adc(){
-    int32_t ret = 0;
-    int32_t err = 0;
-    ADCBuf_Params ADCBufParams;
-    DebugP_log("Initializing ADC...\r\n");
-
-    ADCBuf_Params_init(&ADCBufParams);
-    ADCBufParams.chirpThresholdPing = 1;
-    ADCBufParams.chirpThresholdPong = 1;
-    ADCBufParams.continousMode = 0;
-    ADCBufParams.source = ADCBUF_SOURCE_DFE;
-
-    gADCBufHandle = ADCBuf_open(0, &ADCBufParams);
-    gAdcAddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-
-    if (gADCBufHandle == NULL){
-        DebugP_logError("Failed to get ADC Handle\r\n");
-    }
-
-    DebugP_log("Got ADC handle\r\n");
-
-    // These should apparently be 4 byte aligned
-    ADCBuf_dataFormat datafmt __attribute__((aligned(4))) = {0};
-    ADCBuf_RxChanConf chanconf __attribute__((aligned(4))) = {0};
-    datafmt.adcOutFormat = 1;       // real
-    datafmt.sampleInterleave = 0;
-    datafmt.channelInterleave = 1;  // apparently non-interleaved might be the only valid option for AWR2544
-    chanconf.channel = 0;
-    chanconf.offset = 0;
-
-    ret = ADCBuf_control(gADCBufHandle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
-    if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n"); return;}
-
-    ret = ADCBuf_control(gADCBufHandle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
-    if(ret != 0){ DebugP_logError("Failed to conf channels\r\n"); return;}
-
-    DebugP_log("ADC configured!\r\n");
-}
-
-
-int32_t open_device(int32_t *err){
-    int32_t ret = 0;
-    MMWave_OpenCfg openCfg;
-    memset(&openCfg, 0, sizeof(MMWave_OpenCfg));
-
-    // these are from the oob demo
-    // probably corresponds to 76-81 GHz
-    openCfg.freqLimitLow = 760U;
-    openCfg.freqLimitHigh = 810U;
-
-    // disable these because nothing to handle them
-    openCfg.disableFrameStartAsyncEvent = true;
-    openCfg.disableFrameStopAsyncEvent = true;
-
-    // don't run in lower power mode
-    openCfg.lowPowerMode.lpAdcMode = 0;
-
-    // ADC output configuration
-    // 16 bit output
-    openCfg.adcOutCfg.fmt.b2AdcBits |= 0b10;
-
-    // this is either real or complex, docs can't really seem to agree
-    openCfg.adcOutCfg.fmt.b2AdcOutFmt |= 0b00;
-
-    // how many bits to reduce adc output by
-    // has to be 0 for 16 bits
-    openCfg.adcOutCfg.fmt.b8FullScaleReducFctr |= 0x0;
-
-    // select LVDS as the interface
-    openCfg.dataPathCfg.intfSel = 1;
-
-    // only get out ADC data and suppress pkt1
-    openCfg.dataPathCfg.transferFmtPkt0 = 1;
-    openCfg.dataPathCfg.transferFmtPkt1 = 0;
-
-    // size of cq samples just set to 16 bit I guess
-    openCfg.dataPathCfg.cqConfig = 0b10;
-
-    // cq0 can't be disabled so set it to 32 halfwords and others to 0
-    openCfg.dataPathCfg.cq0TransSize = 32;
-    openCfg.dataPathCfg.cq1TransSize = 0;
-    openCfg.dataPathCfg.cq2TransSize = 0;
-
-    // SDR clock, this has to be DDR for CSI2
-    openCfg.dataPathClkCfg.laneClkCfg = 0;
-
-    // 300Mbps data rate
-    openCfg.dataPathClkCfg.dataRate = 0b100;
-
-    // clock speed for that
-    openCfg.hsiClkCfg.hsiClk = 0xB;
-
-    // only enable 1 lane
-    openCfg.laneEnCfg.laneEn = 0b1;
-    // and 1 channel
-    openCfg.chCfg.rxChannelEn = 0b1;
-    openCfg.chCfg.txChannelEn = 0b1;
-
-    openCfg.chCfg.cascading = 0;
-    openCfg.chCfg.cascadingPinoutCfg = 0;
-
-    // hopefully not getting complex output but this gives I first
-    openCfg.iqSwapSel = 0;
-    openCfg.chInterleave = 1; // counterintuitively this means we don't interleave
-
-    openCfg.defaultAsyncEventHandler = MMWave_DefaultAsyncEventHandler_MSS;
-
-    openCfg.useCustomCalibration = 0;
-    openCfg.customCalibrationEnableMask = 0;
-    openCfg.calibMonTimeUnit = 1;
-
-    ret = MMWave_open(gMmwHandle, &openCfg, NULL, err);
-
-    return ret;
-}
-
-static void create_profiles(int32_t *err){
-    rlProfileCfg_t profileCfg;
-    memset(&profileCfg, 0, sizeof(profileCfg));
-    profileCfg.profileId = 0;
-    profileCfg.pfCalLutUpdate |= 0b00;
-    profileCfg.startFreqConst = 0x558E4BBC; // approx. 77GHz 
-    profileCfg.idleTimeConst = 700;         // 7 usec
-    profileCfg.adcStartTimeConst = 700;     // 7 usec
-    profileCfg.rampEndTime = 2081;	    // 20,81 usec
-    profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = NUM_SAMPLES;
-    profileCfg.digOutSampleRate = 30000;
-    profileCfg.rxGain = 164;
-    profileCfg.freqSlopeConst = 932; // 44,99MHz/us
-
-    gMmwProfiles[0] = MMWave_addProfile(gMmwHandle, &profileCfg, err);
-}
-
-
-MMWave_ChirpHandle add_chirp(MMWave_ProfileHandle profile, int32_t *err){
-    rlChirpCfg_t chirpCfg;
-    memset(&chirpCfg, 0, sizeof(chirpCfg));
-    chirpCfg.chirpEndIdx = 5;
-    chirpCfg.chirpStartIdx = 0;
-    chirpCfg.profileId = 0;
-    chirpCfg.startFreqVar = 0;
-    chirpCfg.freqSlopeVar = 0;
-    chirpCfg.idleTimeVar = 0;
-    chirpCfg.adcStartTimeVar = 0;
-    chirpCfg.txEnable |= 0b0001;
-
-    return MMWave_addChirp(profile, &chirpCfg, err);
-}
-
-int32_t configure_mmw(int32_t *err){
-    int32_t ret = 0;
-    MMWave_CtrlCfg ctrlCfg;
-
-    memset(&ctrlCfg, 0, sizeof(ctrlCfg));
-    ctrlCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
-    ctrlCfg.numOfPhaseShiftChirps[0] = 768U;
-    ctrlCfg.u.frameCfg[0].profileHandle[0] = gMmwProfiles[0];
-    ctrlCfg.u.frameCfg[0].profileHandle[1] = NULL;
-    ctrlCfg.u.frameCfg[0].profileHandle[2] = NULL;
-    ctrlCfg.u.frameCfg[0].profileHandle[3] = NULL;
-
-    ctrlCfg.u.frameCfg[0].frameCfg.chirpStartIdx = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.chirpEndIdx = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.framePeriodicity = 20000000;
-    ctrlCfg.u.frameCfg[0].frameCfg.numFrames = 0;
-    ctrlCfg.u.frameCfg[0].frameCfg.triggerSelect = 1;
-    ctrlCfg.u.frameCfg[0].frameCfg.numLoops = 1;
-
-    ret = MMWave_config(gMmwHandle, &ctrlCfg, err);
-
-    return ret;
-}
-
-
-int32_t start_mmw(int32_t *err){
-    int32_t ret = 0;
-    MMWave_CalibrationCfg calibCfg;
-    memset(&calibCfg, 0, sizeof(calibCfg));
-    calibCfg.dfeDataOutputMode = MMWave_DFEDataOutputMode_FRAME;
-    calibCfg.u.chirpCalibrationCfg.enableCalibration = 0;
-    calibCfg.u.chirpCalibrationCfg.enablePeriodicity = 0;
-    calibCfg.u.chirpCalibrationCfg.periodicTimeInFrames = 0;
-    calibCfg.u.chirpCalibrationCfg.reportEn = 1;
-
-    ret = MMWave_start(gMmwHandle, &calibCfg, err);
-
-    return ret;
-}
-
-void read_adc(){
-    int32_t err;
-    volatile uint32_t *addr = (volatile uint32_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    if(addr == NULL){ 
-        DebugP_logError("Failed to get adc address");
-        return;
-    }
-    
-    printf("%u\n", *addr);
-    printf("%u\n", *(addr+1));
-    printf("%u\n", *(addr+2));
-}
-
-
-__unused static void dpc_task(void *args){
-    __unused int32_t err = 0;
-    
-}
-
-
 static void exec_task(void *args){
     int32_t err;
     while(1){
         MMWave_execute(gMmwHandle, &err);
+    }
+}
+
+
+static void main_task(void *args){
+    int32_t err = 0;
+    int32_t ret = 0;
+    static bool started = 0;
+
+    HwiP_Object hwiobj;
+    HwiP_Params params;
+    HwiP_Params_init(&params);
+    params.intNum = 155; // DFE_CHIRP_CYCLE_START
+    params.args = NULL;
+    params.callback = &chirp_isr;
+    ret = HwiP_construct(&hwiobj, &params);
+    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+    
+    init_butt();
+    DebugP_log("Press SW2 to toggle the radar on/off\r\n");
+  
+
+    while(1){
+        if(gState == 1 && started == 0){
+            ret = mmw_start(gMmwHandle, &err);
+            if(ret != 0){
+                mmw_printerr("Failed to start", err);
+                fail();
+            }
+
+            DebugP_log("Started\r\n");
+            started = 1;
+        }else if(gState == 0 && started == 1){
+            ret = MMWave_stop(gMmwHandle, &err);
+            if(ret != 0){
+                mmw_printerr("Failed to stop", err);
+                fail();
+            }
+            DebugP_log("Stopped\r\n");
+            started = 0;
+        }
+
+        ClockP_usleep(50000);
+
     }
 }
 
@@ -428,22 +238,17 @@ static void init_task(void *args){
     int32_t err = 0;
     int32_t ret = 0;
 
-   Drivers_open();
+    Drivers_open();
     Board_driversOpen(); 
 
     DebugP_log("Init task launched\r\n");
 
-    /* init adc and mmwave and hwa */
-    init_adc();
-    init_mmw(&err);
+    /* init adc and mmwave */
+    adcbuf_init(gADCBufHandle);
+    gMmwHandle = mmw_init(&err);
 
-
-    // HWA will have been (hopefully) opened by Drivers_open()
-    // so for now just set the callback function, source address and enable it
-    DebugP_log("Configuring HWA...\r\n");
-
+    DebugP_assert(gMmwHandle != NULL);
  
-    DebugP_log("Done\r\n");
 
     DebugP_log("Synchronizing...\r\n");
 
@@ -471,32 +276,28 @@ static void init_task(void *args){
         &gExecTaskObj); /*  pointer to statically allocated task object memory */
     configASSERT(gExecTask != NULL);
 
-    ret = open_device(&err);
+    ret = mmw_open(gMmwHandle, &err);
     if(ret != 0){
-        Mmw_printErr("Failed to open device", err);
+        mmw_printerr("Failed to open device", err);
         fail();
     }
 
-    create_profiles(&err);
-    MMWave_ChirpHandle chirp = add_chirp(gMmwProfiles[0], &err);
+    gMmwProfiles[0] = mmw_create_profile(gMmwHandle, &err);
+    MMWave_ChirpHandle chirp = mmw_add_chirp(gMmwProfiles[0], &err);
     if(chirp == NULL){
-        Mmw_printErr("Failed to add chirp", err);
+        mmw_printerr("Failed to add chirp", err);
         fail();
     }
 
-
-    ret = configure_mmw(&err);
+    ret = mmw_config(gMmwHandle, &gMmwProfiles, &err);
     if (ret != 0){
-        Mmw_printErr("Failed to configure", err);
+        mmw_printerr("Failed to configure", err);
         fail();
     }
-
-
 
     DebugP_log("Configured!\r\n");
 
     DebugP_log("Creating main task...\r\n");
-
     gMainTask = xTaskCreateStatic(
         main_task,      /*  Pointer to the function that implements the task. */
         "main task",    /*  Text name for the task.  This is to facilitate debugging
@@ -524,12 +325,8 @@ void btn_isr(void *arg){
     pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
     GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
     if(pending){
-    /*    gState = gState ? 0 : 1;
+        gState = gState ? 0 : 1;
         gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
-      */
-      for(int i = 0; i < SAMPLE_BUFF_SIZE / SAMPLE_SIZE; ++i){
-        printf("%hu,\n",*(((uint16_t*)gSampleBuff)+i));
-      }  
     }
 
 }
@@ -538,57 +335,8 @@ void btn_isr(void *arg){
 void chirp_isr(void *arg){
     int32_t err;
     gState = 0;
-
-    volatile uint8_t const *adcAddr = (volatile uint8_t*)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    for(int i = 0; i < SAMPLE_BUFF_SIZE; ++i){
-        gSampleBuff[i] = adcAddr[i];
-    }
-    DebugP_log("Data has been copied\r\n");
+    printf("Chirp\r\n");
     return;
-}
-
-
-static void main_task(void *args){
-    int32_t err = 0;
-    int32_t ret = 0;
-    static bool started = 0;
-
-    HwiP_Object hwiobj;
-    HwiP_Params params;
-    HwiP_Params_init(&params);
-    params.intNum = 155; // DFE_CHIRP_CYCLE_START
-    params.args = NULL;
-    params.callback = &chirp_isr;
-    ret = HwiP_construct(&hwiobj, &params);
-    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
-    
-    init_butt();
-    //DebugP_log("Press down on SW2 to toggle the radar on/off\r\n");
-    gState = 1;
-
-    while(1){
-        if(gState == 1 && started == 0){
-            ret = start_mmw(&err);
-            if(ret != 0){
-                Mmw_printErr("Failed to start", err);
-                fail();
-            }
-
-            DebugP_log("Started\r\n");
-            started = 1;
-        }else if(gState == 0 && started == 1){
-            ret = MMWave_stop(gMmwHandle, &err);
-            if(ret != 0){
-                Mmw_printErr("Failed to stop", err);
-                fail();
-            }
-            DebugP_log("Stopped\r\n");
-            started = 0;
-        }
-
-        ClockP_usleep(50000);
-
-    }
 }
 
 
@@ -596,6 +344,9 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
+
+/* Define to not run mmw related stuff */
+//#define EDMA_TEST
 #ifdef EDMA_TEST
     //NOTE: remove this or edma dev test will take over
     gMainTask = xTaskCreateStatic(
