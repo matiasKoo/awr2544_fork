@@ -35,6 +35,10 @@ void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
     SemaphoreP_post(semobj);
 }
 
+int32_t edma_configure(void *dst, void *src){
+    
+}
+
 void test_transfer(){
     uint32_t base, region;
     uint8_t *src, *dst;
@@ -99,6 +103,16 @@ void test_transfer(){
         SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
     }
 
+    for(int i = 0; i < BUFF_SIZE; ++i){
+        srcBuff[i] = 0xFE;
+        dstBuff[i] = 0;
+    }
+
+    for(int i = 0; i < (C_COUNT * B_COUNT); ++i){
+        EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
+        SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
+    }
+
     CacheP_inv((void *)dstBuff, BUFF_SIZE, CacheP_TYPE_ALL);
 
     
@@ -123,6 +137,8 @@ void edma_hwa_main(void *args){
     CacheP_wb((void *)dstBuff, BUFF_SIZE, CacheP_TYPE_ALL);
 
     test_transfer();
+
+
 
 
     while(1)__asm__("wfi");
