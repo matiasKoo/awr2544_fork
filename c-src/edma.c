@@ -13,21 +13,12 @@
 #include "ti_drivers_open_close.h"
 #include "ti_board_open_close.h"
 
-#define A_COUNT (16U)
-#define B_COUNT (8U)
-#define C_COUNT (1U)
+#include <edma.h>
 
-#define BUFF_SIZE (A_COUNT * C_COUNT * B_COUNT)
+#define SIZE 128
 
-
-
-static SemaphoreP_Object gEdmaTestDoneSem;
-
-
-
-
-static volatile uint8_t srcBuff[BUFF_SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
-static volatile uint8_t dstBuff[BUFF_SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
+static uint8_t testsrc[SIZE];
+static uint8_t testdst[SIZE];
 
 void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
     SemaphoreP_Object *semobj = (SemaphoreP_Object*)args;
@@ -35,19 +26,23 @@ void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
     SemaphoreP_post(semobj);
 }
 
-int32_t edma_configure(void *dst, void *src){
-    
-}
 
-void test_transfer(){
-    uint32_t base, region;
-    uint8_t *src, *dst;
+void edma_configure(void *cb, void *dst, void *src, size_t n){
+    uint32_t base = 0;
+    uint32_t region = 0;
+    uint32_t ch = 0;
+    uint32_t tcc = 0;
+    uint32_t param = 0;
     int32_t ret = 0;
+    uint8_t *srcp = (uint8_t*)src;
+    uint8_t *dstp = (uint8_t*)dst;
+    
     EDMACCPaRAMEntry edmaparam;
-    Edma_IntrObject     intrObj;
+    Edma_IntrObject intrObj;
 
-    uint32_t ch, tcc, param;
+    struct edmainfo info;
 
+    
     base = EDMA_getBaseAddr(gEdmaHandle[0]);
     DebugP_assert(base != 0);
 
@@ -64,82 +59,52 @@ void test_transfer(){
 
     param = EDMA_RESOURCE_ALLOC_ANY;
     ret = EDMA_allocParam(gEdmaHandle[0], &param);
-    DebugP_assert(ret == 0);
-
-    src = (uint8_t*)srcBuff;
-    dst = (uint8_t*)dstBuff;
 
     EDMA_configureChannelRegion(base, region, EDMA_CHANNEL_TYPE_DMA, ch, tcc , param, 0);
     EDMA_ccPaRAMEntry_init(&edmaparam);
-    edmaparam.srcAddr       = (uint32_t) SOC_virtToPhy(src);
-    edmaparam.destAddr      = (uint32_t)SOC_virtToPhy(dst);
-    edmaparam.aCnt          = (uint16_t) A_COUNT;
-    edmaparam.bCnt          = (uint16_t) B_COUNT;
-    edmaparam.cCnt          = (uint16_t) C_COUNT;
-    edmaparam.bCntReload    = (uint16_t) B_COUNT;
-    edmaparam.srcBIdx       = (int16_t)EDMA_PARAM_BIDX(A_COUNT);
-    edmaparam.destBIdx      = (int16_t)EDMA_PARAM_BIDX(A_COUNT);
-    edmaparam.srcCIdx       = (int16_t) A_COUNT;
-    edmaparam.destBIdx      = (int16_t) A_COUNT;
+    edmaparam.srcAddr       = (uint32_t) SOC_virtToPhy(srcp);
+    edmaparam.destAddr      = (uint32_t) SOC_virtToPhy(dstp);
+    edmaparam.aCnt          = (uint16_t) n;     // (assuming this works,) do everything in one dimension
+    edmaparam.bCnt          = (uint16_t) 1U;    // With just one array
+    edmaparam.cCnt          = (uint16_t) 1U;    // in one block
+    edmaparam.bCntReload    = 0U;
+    edmaparam.srcBIdx       = 0U;
+    edmaparam.destBIdx      = 0U;
+    edmaparam.srcCIdx       = 0U;
+    edmaparam.destBIdx      = 0U;
     edmaparam.linkAddr      = 0xFFFF;
-    edmaparam.srcBIdxExt    = (int8_t)EDMA_PARAM_BIDX_EXT(A_COUNT);
-    edmaparam.destBIdxExt   = (int8_t)EDMA_PARAM_BIDX_EXT(A_COUNT);
+    edmaparam.srcBIdxExt    = 0U;
+    edmaparam.destBIdxExt   = 0U;
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
     EDMA_setPaRAM(base, param, &edmaparam);
 
-    ret = SemaphoreP_constructBinary(&gEdmaTestDoneSem, 0);
-    DebugP_assert(ret == 0);
-    /* Register interrupt */
     intrObj.tccNum = tcc;
-    intrObj.cbFxn  = &EDMA_regionIsrFxn;
-    intrObj.appData = (void *) &gEdmaTestDoneSem;
+    intrObj.cbFxn = cb;
+    intrObj.appData = (void*)0;
     ret = EDMA_registerIntr(gEdmaHandle[0], &intrObj);
-    DebugP_assert(ret == SystemP_SUCCESS);
+    DebugP_assert(ret == 0);
+    DebugP_log("Edma initialized\r\n");
 
 
+    DebugP_log("Transferring\r\n");
+    CacheP_wb(testsrc, SIZE, CacheP_TYPE_ALL);
+    CacheP_wb(testdst, SIZE, CacheP_TYPE_ALL);
 
-    for(int i = 0; i < (C_COUNT * B_COUNT); ++i){
-        EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
-        SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
-    }
+    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
 
-    for(int i = 0; i < BUFF_SIZE; ++i){
-        srcBuff[i] = 0xFE;
-        dstBuff[i] = 0;
-    }
-
-    for(int i = 0; i < (C_COUNT * B_COUNT); ++i){
-        EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
-        SemaphoreP_pend(&gEdmaTestDoneSem, SystemP_WAIT_FOREVER);
-    }
-
-    CacheP_inv((void *)dstBuff, BUFF_SIZE, CacheP_TYPE_ALL);
-
-    
-    for(int i = 0; i < BUFF_SIZE; ++i){
-        if(srcBuff[i] != dstBuff[i]){
-            printf("Mismatch at: %p src=%hd dst=%hd\r\n",&dstBuff[i],srcBuff[i], dstBuff[i]);
-        }
-    }
+    CacheP_inv(testdst, SIZE, CacheP_TYPE_ALL);
 }
 
 
-void edma_hwa_main(void *args){
-    Drivers_open();
-    Board_driversOpen();
-    srand(10);
+void edma_cb(){
+    return;
+}
 
-    for(int i = 0; i < BUFF_SIZE; ++i){
-        srcBuff[i] = rand() % UINT8_MAX;
-        dstBuff[i] = 0;
+void edma_test(void *args){
+    for(int i = 0; i < SIZE; ++i){
+        testsrc[i] = 0xFE;
+        testdst[i] = 0x00;
     }
-    CacheP_wb((void *)srcBuff, BUFF_SIZE, CacheP_TYPE_ALL);
-    CacheP_wb((void *)dstBuff, BUFF_SIZE, CacheP_TYPE_ALL);
-
-    test_transfer();
-
-
-
-
+    edma_configure(&edma_cb, &testdst, &testsrc, 128);
     while(1)__asm__("wfi");
 }
