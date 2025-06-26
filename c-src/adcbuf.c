@@ -4,7 +4,6 @@
 
 int32_t adcbuf_init(ADCBuf_Handle handle){
     int32_t ret = 0;
-    int32_t err = 0;
     ADCBuf_Params ADCBufParams;
     DebugP_log("Initializing ADC...\r\n");
 
@@ -30,10 +29,16 @@ int32_t adcbuf_init(ADCBuf_Handle handle){
     chanconf.offset = 0;
 
     ret = ADCBuf_control(handle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
-    if(ret != 0){ DebugP_logError("Failed to conf data fmt\r\n"); return ret; }
+    if(ret != 0){ 
+        DebugP_logError("Failed to conf data fmt\r\n"); 
+        return ret; 
+    }
 
     ret = ADCBuf_control(handle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
-    if(ret != 0){ DebugP_logError("Failed to conf channels\r\n"); return ret; }
+    if(ret != 0){ 
+        DebugP_logError("Failed to conf channels\r\n"); 
+        return ret; 
+    }
 
     DebugP_log("ADC configured!\r\n");
     return 0;
