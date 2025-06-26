@@ -28,7 +28,7 @@ profile_key_list = list(profile_dict.keys())
 file_string = ""
 
 for i in range(len(profile_key_list)):
-    substr = "CFG_PROFILE_" + profile_key_list[i] + " " + profile_dict[profile_key_list[i]] + "U;\n"
+    substr = "CFG_PROFILE_" + profile_key_list[i] + " " + profile_dict[profile_key_list[i]] + "U\n"
     substr = substr.upper()
     file_string = file_string + "#define " + substr
 
