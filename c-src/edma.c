@@ -40,7 +40,7 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     EDMACCPaRAMEntry edmaparam;
     Edma_IntrObject intrObj;
 
-    struct edmainfo info;
+
 
     
     base = EDMA_getBaseAddr(gEdmaHandle[0]);

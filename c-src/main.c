@@ -116,9 +116,9 @@ MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
 static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
-static struct edmainfo gEdmaInfo;
+//static struct edmainfo gEdmaInfo;
 
-static uint16_t gTestBuff[CFG_PROFILE_NUMADCSAMPLES] __attribute__((aligned(32)));
+//static uint16_t gTestBuff[CFG_PROFILE_NUMADCSAMPLES] __attribute__((aligned(32)));
 
 
 static inline void fail(void){
@@ -201,7 +201,6 @@ static void main_task(void *args){
     mmw_start(gMmwHandle, &err);
     ClockP_sleep(1);
     MMWave_stop(gMmwHandle, &err);
-    edma_transfer(gEdmaInfo);
     DebugP_log("done\r\n");
     while(1) __asm__("wfi");
 
