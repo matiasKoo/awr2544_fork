@@ -7,7 +7,8 @@
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
 
-#define NUM_SAMPLES 256
+/* Header file for configuration values */
+#include <cfg.h>
 
 int32_t mmw_callback(uint8_t devIdx, uint16_t msgId, uint16_t sbId, uint16_t sbLen, uint8_t *payload){
     DebugP_log("MMWave callback called\r\n");
@@ -104,20 +105,21 @@ int32_t mmw_open(MMWave_Handle handle, int32_t *err){
 }
 
 
+/* Pulls values from cfg.h */
 MMWave_ProfileHandle mmw_create_profile(MMWave_Handle handle, int32_t *err){
     rlProfileCfg_t profileCfg;
     memset(&profileCfg, 0, sizeof(profileCfg));
-    profileCfg.profileId = 0;
+    profileCfg.profileId = CFG_PROFILE_PROFILEID;
     profileCfg.pfCalLutUpdate |= 0b00;
-    profileCfg.startFreqConst = 0x558E4BBC; // approx. 77GHz 
-    profileCfg.idleTimeConst = 700;         // 7 usec
-    profileCfg.adcStartTimeConst = 700;     // 7 usec
-    profileCfg.rampEndTime = 2081;	    // 20,81 usec
+    profileCfg.startFreqConst = CFG_PROFILE_STARTFREQCONST;
+    profileCfg.idleTimeConst = CFG_PROFILE_IDLETIMECONST;         
+    profileCfg.adcStartTimeConst = CFG_PROFILE_ADCSTARTTIMECONST;     
+    profileCfg.rampEndTime = CFG_PROFILE_RAMPENDTIME;	    
     profileCfg.txStartTime = 0;
-    profileCfg.numAdcSamples = NUM_SAMPLES;
-    profileCfg.digOutSampleRate = 30000;
-    profileCfg.rxGain = 164;
-    profileCfg.freqSlopeConst = 932; // 44,99MHz/us
+    profileCfg.numAdcSamples = CFG_PROFILE_NUMADCSAMPLES;
+    profileCfg.digOutSampleRate = CFG_PROFILE_DIGOUTSAMPLERATE;
+    profileCfg.rxGain = CFG_PROFILE_RXGAIN;
+    profileCfg.freqSlopeConst = CFG_PROFILE_FREQSLOPECONST;
 
     return MMWave_addProfile(handle, &profileCfg, err);
 }
