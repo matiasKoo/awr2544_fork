@@ -8,7 +8,6 @@ import configparser
 # for example:
 #
 # python cfg_init.py myconfig.ini myheader.h
-#
 #------------------------------------------------
 
 parser = argparse.ArgumentParser()
@@ -25,18 +24,46 @@ print(profile_dict)
 
 profile_key_list = list(profile_dict.keys())
 
+def comment_func(x):
+    match x:
+        case 'startfreqconst':
+            ret_str = "// " + profile_dict[x] + " * 53.644 Hz = " + str(float(profile_dict[x]) * 53.644) + " Hz"
+            return(ret_str)
+        case 'idletimeconst':
+            ret_str = "// " + profile_dict[x] + " * 10 ns = " + str(float(profile_dict[x]) * 10) + " ns = " + str(float(profile_dict[x])/100) + " us"
+            return(ret_str)
+        case 'adcstarttimeconst':
+            ret_str = "// " + profile_dict[x] + " * 10 ns = " + str(float(profile_dict[x]) * 10) + " ns = " + str(float(profile_dict[x])/100) + " us"
+            return(ret_str)
+        case 'rampendtime':
+            ret_str = "// " + profile_dict[x] + " * 10 ns = " + str(float(profile_dict[x]) * 10) + " ns = " + str(float(profile_dict[x])/100) + " us"
+            return(ret_str)
+        case 'freqslopeconst':
+            ret_str = "// " + profile_dict[x] + " * 48.729 kHz/us = " + str(float(profile_dict[x]) * 48.729) + " kHz/us = " + str(float(profile_dict[x]) * 48.729 / 1000) + " MHz/us"
+            return(ret_str)
+        case 'digoutsamplerate':
+            ret_str = "// " + profile_dict[x] + " * 1000 samples/s = " + str(float(profile_dict[x]) * 1000) + " Hz sample rate"
+            return(ret_str)
+        case _:
+            return("")
+
+
 file_string = ""
 
 for i in range(len(profile_key_list)):
-    substr = "CFG_PROFILE_" + profile_key_list[i] + " " + profile_dict[profile_key_list[i]] + "U\n"
+    comment_string = ""
+    comment_string = comment_func(profile_key_list[i])
+
+    substr = "CFG_PROFILE_" + profile_key_list[i] + " " + profile_dict[profile_key_list[i]] + "U "
     substr = substr.upper()
+    substr = substr + comment_string + "\n"
     file_string = file_string + "#define " + substr
 
-outname_s = args.out_fname
-outname_s = outname_s[:-2]
-outname_s = outname_s.upper()
+outname_string = args.out_fname
+outname_string = outname_string[:-2]
+outname_string = outname_string.upper()
 
-file_string = "#ifndef "+ outname_s +"_H\n#define "+outname_s+"_H\n\n"+file_string+"\n#endif"
+file_string = "#ifndef "+ outname_string +"_H\n#define "+outname_string+"_H\n\n"+file_string+"\n#endif"
 
 with open(args.out_fname,'w') as headerfile:
     headerfile.write(file_string)
