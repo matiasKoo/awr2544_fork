@@ -31,7 +31,19 @@
 		</variable>
 		<variable>
 			<name>TI_ROOT</name>
-			<value>file:/home/j/ti</value>
+			<value>file:/C:/ti</value>
+		</variable>
+		<variable>
+			<name>TI_SDK_AWR2544</name>
+			<value>$%7BTI_SDK_ROOT%7D/mcu_plus_sdk_awr2544_10_00_00_07</value>
+		</variable>
+		<variable>
+			<name>TI_SDK_COMMON</name>
+			<value>$%7BTI_SDK_ROOT%7D/mmwave_mcuplus_sdk_04_07_00_01</value>
+		</variable>
+		<variable>
+			<name>TI_SDK_ROOT</name>
+			<value>$%7BTI_ROOT%7D/mmwave_mcuplus_sdk_04_07_00_01</value>
 		</variable>
 	</variableList>
 </projectDescription>

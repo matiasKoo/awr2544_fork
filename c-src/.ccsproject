@@ -12,6 +12,6 @@
 	<activeTargetConfiguration value="targetConfigs/AWR2544.ccxml"/>
 	<templateProperties value="id=example.projectspec.empty_awr2544-evm_r5fss0-0_freertos_ti-arm-clang"/>
 	<isTargetConfigurationManual value="false"/>
-	<origin value="/home/j/ti/mmwave_mcuplus_sdk_04_06_01_02/mcu_plus_sdk_awr2544_09_01_00_05/examples/empty/awr2544-evm/r5fss0-0_freertos/ti-arm-clang/example.projectspec"/>
+	<origin value="C:/Users/Matias/git/awr2544_fork/c-src"/>
 	<filesToOpen value=""/>
 </projectOptions>

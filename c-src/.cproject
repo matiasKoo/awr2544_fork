@@ -4,8 +4,11 @@
         <cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1677584938">
             <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1677584938" moduleId="org.eclipse.cdt.core.settings" name="Debug">
                 <macros>
-                    <stringMacro name="TI_ROOT" type="VALUE_PATH_ANY" value="/home/j/ti"/>
+                    <stringMacro name="TI_SDK_AWR2544" type="VALUE_PATH_ANY" value="${TI_SDK_ROOT}/mcu_plus_sdk_awr2544_10_00_00_07"/>
+                    <stringMacro name="TI_ROOT" type="VALUE_PATH_ANY" value="C:/ti"/>
                     <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AWR2544_INSTALL_DIR}"/>
+                    <stringMacro name="TI_SDK_ROOT" type="VALUE_PATH_ANY" value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01"/>
+                    <stringMacro name="TI_SDK_COMMON" type="VALUE_PATH_ANY" value="${TI_SDK_ROOT}/mmwave_mcuplus_sdk_04_07_00_01"/>
                 </macros>
                 <externalSettings/>
                 <extensions>
@@ -43,7 +46,7 @@
                                     <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AWR2544_INCLUDE_PATH}"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/include/c"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/"/>
+                                    <listOptionValue value="${TI_SDK_COMMON}"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/networking/enet/core/include/"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/networking/enet/soc/awr2544/"/>
@@ -55,6 +58,7 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/config/awr2544/r5f"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/portable/TI_ARM_CLANG/ARM_CR5F"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/board"/>
+                                    <listOptionValue value="${PROJECT_LOC}/include"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.DEFINE.176231449" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.DEFINE" valueType="definedSymbols">
                                     <listOptionValue value="${COM_TI_MMWAVE_MCUPLUS_SDK_SYMBOLS}"/>
@@ -92,8 +96,8 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/lib"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/drivers/lib"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/lib"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwavelink/lib/"/>
-                                    <listOptionValue value="${TI_ROOT}/mmwave_mcuplus_sdk_04_06_01_02/mmwave_mcuplus_sdk_04_06_01_02/ti/control/mmwave/lib/"/>
+                                    <listOptionValue value="${TI_SDK_COMMON}/ti/control/mmwavelink/lib/"/>
+                                    <listOptionValue value="${TI_SDK_COMMON}/ti/control/mmwave/lib/"/>
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/board/lib"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY.1574453893" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.linkerID.LIBRARY" valueType="libs">
@@ -104,8 +108,6 @@
                                     <listOptionValue value="drivers.awr2544.r5f.ti-arm-clang.debug.lib"/>
                                     <listOptionValue value="libc.a"/>
                                     <listOptionValue value="libsysbm.a"/>
-                                    <listOptionValue value="libmmwave_awr2544.aer5f"/>
-                                    <listOptionValue value="libmmwavelink_awr2544.aer5f"/>
                                     <listOptionValue value="board.awr2544.r5f.ti-arm-clang.release.lib"/>
                                     <listOptionValue value="board.awr2544.r5f.ti-arm-clang.debug.lib"/>
                                 </option>
@@ -138,7 +140,11 @@
         <cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Release.992643878">
             <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Release.992643878" moduleId="org.eclipse.cdt.core.settings" name="Release">
                 <macros>
+                    <stringMacro name="TI_SDK_AWR2544" type="VALUE_PATH_ANY" value="${TI_SDK_ROOT}/mcu_plus_sdk_awr2544_10_00_00_07"/>
                     <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AWR2544_INSTALL_DIR}"/>
+                    <stringMacro name="TI_ROOT" type="VALUE_PATH_ANY" value="C:/ti"/>
+                    <stringMacro name="TI_SDK_ROOT" type="VALUE_PATH_ANY" value="${TI_ROOT}/mmwave_mcuplus_sdk_04_07_00_01"/>
+                    <stringMacro name="TI_SDK_COMMON" type="VALUE_PATH_ANY" value="${TI_SDK_ROOT}/mmwave_mcuplus_sdk_04_07_00_01"/>
                 </macros>
                 <externalSettings/>
                 <extensions>
@@ -166,7 +172,7 @@
                             </option>
                             <option id="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION.1246102469" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION" value="TICLANG_3.2.1.LTS" valueType="string"/>
                             <targetPlatform id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.targetPlatformRelease.1668241426" name="Platform" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.targetPlatformRelease"/>
-                            <builder buildPath="${BuildDirectory}" id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.builderRelease.2000439482" name="GNU Make.Release" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.builderRelease"/>
+                            <builder buildPath="${BuildDirectory}" id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.builderRelease.2000439482" keepEnvironmentInBuildfile="false" name="GNU Make" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.builderRelease"/>
                             <tool id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.compilerRelease.1205785180" name="Arm Compiler" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.exe.compilerRelease">
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.OPT_LEVEL.release.100284573" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.OPT_LEVEL.release" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.OPT_LEVEL.s" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.ENDIAN_NESS__BIG_LITTLE.2029149195" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.ENDIAN_NESS__BIG_LITTLE" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_3.2.compilerID.ENDIAN_NESS__BIG_LITTLE.MLITTLE_ENDIAN" valueType="enumerated"/>
