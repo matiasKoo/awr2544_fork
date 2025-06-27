@@ -4,8 +4,4 @@
 *.bin
 *.out
 *.rprc
-.settings/
-.ccsproject
-.cproject
-.project
 .clangd

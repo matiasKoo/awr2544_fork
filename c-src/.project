@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>empty-freertos-mmwave</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>com.ti.ccstudio.core.ccsNature</nature>
+		<nature>org.eclipse.cdt.core.cnature</nature>
+		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
+		<nature>org.eclipse.cdt.core.ccnature</nature>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>README.html</name>
+			<type>1</type>
+			<locationURI>MCU_PLUS_SDK_PATH/docs/api_guide_awr2544/EXAMPLES_EMPTY.html</locationURI>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>MCU_PLUS_SDK_PATH</name>
+			<value>$%7BCOM_TI_MCU_PLUS_SDK_AWR2544_INSTALL_DIR%7D</value>
+		</variable>
+		<variable>
+			<name>TI_ROOT</name>
+			<value>file:/home/j/ti</value>
+		</variable>
+	</variableList>
+</projectDescription>
