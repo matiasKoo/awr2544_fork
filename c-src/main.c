@@ -189,7 +189,7 @@ static void main_task(void *args){
     HwiP_Object hwiobj;
     HwiP_Params params;
     HwiP_Params_init(&params);
-    params.intNum = 155; // DFE_CHIRP_CYCLE_START
+    params.intNum = CSL_MSS_INTR_RSS_ADC_CAPTURE_COMPLET;
     params.args = NULL;
     params.callback = &chirp_isr;
     ret = HwiP_construct(&hwiobj, &params);
