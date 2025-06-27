@@ -189,7 +189,7 @@ static void main_task(void *args){
     HwiP_Object hwiobj;
     HwiP_Params params;
     HwiP_Params_init(&params);
-    params.intNum = CSL_MSS_INTR_RSS_ADC_CAPTURE_COMPLET;
+    params.intNum = CSL_MSS_INTR_RSS_ADC_CAPTURE_COMPLETE;
     params.args = NULL;
     params.callback = &chirp_isr;
     ret = HwiP_construct(&hwiobj, &params);
@@ -366,7 +366,7 @@ int main(void) {
         MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
                                on 32b CPUs */
         NULL,           /* We are not using the task parameter. */
-        MAIN_TASK_PRI,  /* task priority, 0 is lowest priority,
+        configMAX_PRIORITIES-3,  /* task priority, 0 is lowest priority,
                                configMAX_PRIORITIES-1 is highest */
         gMainTaskStack, /* pointer to stack base */
         &gMainTaskObj); /* pointer to statically allocated task object memory */

@@ -20,14 +20,32 @@
 static uint8_t testsrc[SIZE];
 static uint8_t testdst[SIZE];
 
+struct test{
+    uint32_t base;
+    uint32_t region;
+    uint32_t ch;
+};
+
 void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
     SemaphoreP_Object *semobj = (SemaphoreP_Object*)args;
     DebugP_assert(semobj != NULL);
     SemaphoreP_post(semobj);
 }
 
+static inline __attribute__((always_inline)) void edma_write(uint32_t base, uint32_t region, uint32_t ch){
+    DebugP_log("Transferring\r\n");
+    CacheP_wb(testsrc, SIZE, CacheP_TYPE_ALL);
+    CacheP_wb(testdst, SIZE, CacheP_TYPE_ALL);
 
-void edma_configure(void *cb, void *dst, void *src, size_t n){
+    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
+
+    CacheP_inv(testdst, SIZE, CacheP_TYPE_ALL);
+    CacheP_inv(testsrc, SIZE, CacheP_TYPE_ALL);
+    DebugP_log("Done\r\n");
+}
+
+
+struct test edma_configure(void *cb, void *dst, void *src, size_t n){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -36,6 +54,8 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     int32_t ret = 0;
     uint8_t *srcp = (uint8_t*)src;
     uint8_t *dstp = (uint8_t*)dst;
+        struct test t;
+
     
     EDMACCPaRAMEntry edmaparam;
     Edma_IntrObject intrObj;
@@ -85,26 +105,30 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     DebugP_assert(ret == 0);
     DebugP_log("Edma initialized\r\n");
 
+    t.base = base;
+    t.region = region;
+    t.ch = ch;
+    DebugP_log("Inside configure\r\nt.base:%u\r\nt.region:%u\r\nt.ch:1\r\n",t.base,t.region,t.ch);
+        edma_write(t.base, t.region, t.ch);
 
-    DebugP_log("Transferring\r\n");
-    CacheP_wb(testsrc, SIZE, CacheP_TYPE_ALL);
-    CacheP_wb(testdst, SIZE, CacheP_TYPE_ALL);
+    return t;
 
-    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
-
-    CacheP_inv(testdst, SIZE, CacheP_TYPE_ALL);
 }
+
 
 
 void edma_cb(){
-    return;
 }
+
 
 void edma_test(void *args){
     for(int i = 0; i < SIZE; ++i){
         testsrc[i] = 0xFE;
         testdst[i] = 0x00;
     }
-    edma_configure(&edma_cb, &testdst, &testsrc, 128);
+    struct test t;
+    t = edma_configure(&edma_cb, &testdst, &testsrc, 128);
+    DebugP_log("t.base:%u\r\nt.region:%u\r\nt.ch:%u\r\n", t.base, t.region, t.ch);
+
     while(1)__asm__("wfi");
 }
