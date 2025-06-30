@@ -17,8 +17,11 @@
 
 #define SIZE 128
 
-static uint8_t testsrc[SIZE];
-static uint8_t testdst[SIZE];
+static uint8_t testsrc[SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
+static uint8_t testdst[SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
+
+static Edma_IntrObject intrObj;
+
 
 struct test{
     uint32_t base;
@@ -26,13 +29,10 @@ struct test{
     uint32_t ch;
 };
 
-void EDMA_regionIsrFxn(Edma_IntrHandle intrHandle, void *args){
-    SemaphoreP_Object *semobj = (SemaphoreP_Object*)args;
-    DebugP_assert(semobj != NULL);
-    SemaphoreP_post(semobj);
+void edma_cb(Edma_IntrHandle intrHandle, void *args){
 }
 
-static inline __attribute__((always_inline)) void edma_write(uint32_t base, uint32_t region, uint32_t ch){
+void edma_write(uint32_t base, uint32_t region, uint32_t ch){
     DebugP_log("Transferring\r\n");
     CacheP_wb(testsrc, SIZE, CacheP_TYPE_ALL);
     CacheP_wb(testdst, SIZE, CacheP_TYPE_ALL);
@@ -44,8 +44,11 @@ static inline __attribute__((always_inline)) void edma_write(uint32_t base, uint
     DebugP_log("Done\r\n");
 }
 
+void __attribute__((noinline)) foo(){
+    DebugP_log("Foo\r\n");
+}
 
-struct test edma_configure(void *cb, void *dst, void *src, size_t n){
+void edma_configure(void *cb, void *dst, void *src, size_t n){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -54,11 +57,10 @@ struct test edma_configure(void *cb, void *dst, void *src, size_t n){
     int32_t ret = 0;
     uint8_t *srcp = (uint8_t*)src;
     uint8_t *dstp = (uint8_t*)dst;
-        struct test t;
 
     
     EDMACCPaRAMEntry edmaparam;
-    Edma_IntrObject intrObj;
+   // Edma_IntrObject intrObj;
 
 
 
@@ -92,43 +94,39 @@ struct test edma_configure(void *cb, void *dst, void *src, size_t n){
     edmaparam.destBIdx      = 0U;
     edmaparam.srcCIdx       = 0U;
     edmaparam.destBIdx      = 0U;
-    edmaparam.linkAddr      = 0xFFFF;
+    edmaparam.linkAddr      = 0x4000;           // PaRAM set 0 so we reuse the configuration
     edmaparam.srcBIdxExt    = 0U;
     edmaparam.destBIdxExt   = 0U;
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
     EDMA_setPaRAM(base, param, &edmaparam);
 
     intrObj.tccNum = tcc;
-    intrObj.cbFxn = cb;
+    intrObj.cbFxn = &edma_cb;
     intrObj.appData = (void*)0;
     ret = EDMA_registerIntr(gEdmaHandle[0], &intrObj);
-    DebugP_assert(ret == 0);
+        DebugP_assert(ret == 0);
+
     DebugP_log("Edma initialized\r\n");
 
-    t.base = base;
-    t.region = region;
-    t.ch = ch;
-    DebugP_log("Inside configure\r\nt.base:%u\r\nt.region:%u\r\nt.ch:1\r\n",t.base,t.region,t.ch);
-        edma_write(t.base, t.region, t.ch);
-
-    return t;
-
-}
-
-
-
-void edma_cb(){
+    foo();
+   // edma_write(base, region, ch);
 }
 
 
 void edma_test(void *args){
     for(int i = 0; i < SIZE; ++i){
-        testsrc[i] = 0xFE;
+        testsrc[i] = 0xAB;
         testdst[i] = 0x00;
     }
-    struct test t;
-    t = edma_configure(&edma_cb, &testdst, &testsrc, 128);
-    DebugP_log("t.base:%u\r\nt.region:%u\r\nt.ch:%u\r\n", t.base, t.region, t.ch);
+    edma_configure(&edma_cb, &testdst, &testsrc, 128);
+edma_write(EDMA_getBaseAddr(gEdmaHandle[0]), 0, 1);
+    for(int i = 0; i < SIZE; ++i){
+        testsrc[i] = 0xCD;
+        testdst[i] = 0x00;
+    }   
+
+edma_write(EDMA_getBaseAddr(gEdmaHandle[0]), 0, 1);
+    
 
     while(1)__asm__("wfi");
 }
