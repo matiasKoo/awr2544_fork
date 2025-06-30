@@ -3,5 +3,7 @@
 #include <stdint.h>
 
 void edma_test(void *args);
+void edma_configure(void *dst, void *src, size_t n);
+void edma_write();
 
 #endif /* EDMA_H */

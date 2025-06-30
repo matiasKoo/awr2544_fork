@@ -113,12 +113,14 @@ MMWave_Handle gMmwHandle = NULL;
 ADCBuf_Handle gADCBufHandle = NULL;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
+SemaphoreP_Object gAdcSampledSem;
+
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
 static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
 //static struct edmainfo gEdmaInfo;
 
-//static uint16_t gTestBuff[CFG_PROFILE_NUMADCSAMPLES] __attribute__((aligned(32)));
+static uint16_t gTestBuff[CFG_PROFILE_NUMADCSAMPLES] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
 
 
 static inline void fail(void){
@@ -194,13 +196,17 @@ static void main_task(void *args){
     params.callback = &chirp_isr;
     ret = HwiP_construct(&hwiobj, &params);
     if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+
+    ret = SemaphoreP_constructBinary(&gAdcSampledSem, 0);
     
     init_butt();
   //  DebugP_log("Press SW2 to toggle the radar on/off\r\n");
     
     mmw_start(gMmwHandle, &err);
-    ClockP_sleep(1);
+    SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
+        edma_write();
     MMWave_stop(gMmwHandle, &err);
+
     DebugP_log("done\r\n");
     while(1) __asm__("wfi");
 
@@ -258,7 +264,7 @@ static void init_task(void *args){
     DebugP_assert(gMmwHandle != NULL);
 
     uint32_t adcaddr = ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-  //  gEdmaInfo = edma_configure(&edma_callback, &gTestBuff, (void*)adcaddr, CFG_PROFILE_NUMADCSAMPLES * sizeof(uint16_t));
+    edma_configure(&gTestBuff, (void*)adcaddr, CFG_PROFILE_NUMADCSAMPLES * sizeof(uint16_t));
  
 
     DebugP_log("Synchronizing...\r\n");
@@ -344,6 +350,7 @@ void btn_isr(void *arg){
 
 
 void chirp_isr(void *arg){
+    SemaphoreP_post(&gAdcSampledSem);
     return;
 }
 
@@ -354,7 +361,6 @@ int main(void) {
     Board_init();
 
 /* Define to not run mmw related stuff */
-#define EDMA_TEST
 #ifdef EDMA_TEST
     Drivers_open();
     Board_driversOpen(); 

@@ -15,32 +15,28 @@
 
 #include <edma.h>
 
-#define SIZE 128
 
-static uint8_t testsrc[SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
-static uint8_t testdst[SIZE] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
+static Edma_IntrObject gIntrObj;
+static uint32_t gBaseAddr;
+static uint32_t gRegion;
+static uint32_t gCh;
+static void *gSrcBuff;
+static void *gDstBuff;
+static size_t gSize;
 
-static Edma_IntrObject intrObj;
 
-
-struct test{
-    uint32_t base;
-    uint32_t region;
-    uint32_t ch;
-};
-
-void edma_cb(Edma_IntrHandle intrHandle, void *args){
+static void edma_cb(Edma_IntrHandle intrHandle, void *args){
 }
 
-void edma_write(uint32_t base, uint32_t region, uint32_t ch){
+void edma_write(){
     DebugP_log("Transferring\r\n");
-    CacheP_wb(testsrc, SIZE, CacheP_TYPE_ALL);
-    CacheP_wb(testdst, SIZE, CacheP_TYPE_ALL);
+    CacheP_wb(gSrcBuff , gSize, CacheP_TYPE_ALL);
+    CacheP_wb(gDstBuff, gSize, CacheP_TYPE_ALL);
 
-    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_MANUAL);
+    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_MANUAL);
 
-    CacheP_inv(testdst, SIZE, CacheP_TYPE_ALL);
-    CacheP_inv(testsrc, SIZE, CacheP_TYPE_ALL);
+    CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
+    CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
     DebugP_log("Done\r\n");
 }
 
@@ -48,7 +44,7 @@ void __attribute__((noinline)) foo(){
     DebugP_log("Foo\r\n");
 }
 
-void edma_configure(void *cb, void *dst, void *src, size_t n){
+void edma_configure(void *dst, void *src, size_t n){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -57,14 +53,12 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     int32_t ret = 0;
     uint8_t *srcp = (uint8_t*)src;
     uint8_t *dstp = (uint8_t*)dst;
+    gSrcBuff = src;
+    gDstBuff = dst;
+    gSize = n;
 
-    
     EDMACCPaRAMEntry edmaparam;
-   // Edma_IntrObject intrObj;
 
-
-
-    
     base = EDMA_getBaseAddr(gEdmaHandle[0]);
     DebugP_assert(base != 0);
 
@@ -100,33 +94,16 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
     EDMA_setPaRAM(base, param, &edmaparam);
 
-    intrObj.tccNum = tcc;
-    intrObj.cbFxn = &edma_cb;
-    intrObj.appData = (void*)0;
-    ret = EDMA_registerIntr(gEdmaHandle[0], &intrObj);
+    gBaseAddr = base;
+    gCh = ch;
+    gRegion = 0;
+    gIntrObj.tccNum = tcc;
+    gIntrObj.cbFxn = &edma_cb;
+    gIntrObj.appData = (void*)0;
+    ret = EDMA_registerIntr(gEdmaHandle[0], &gIntrObj);
         DebugP_assert(ret == 0);
 
     DebugP_log("Edma initialized\r\n");
 
-    foo();
-   // edma_write(base, region, ch);
 }
 
-
-void edma_test(void *args){
-    for(int i = 0; i < SIZE; ++i){
-        testsrc[i] = 0xAB;
-        testdst[i] = 0x00;
-    }
-    edma_configure(&edma_cb, &testdst, &testsrc, 128);
-edma_write(EDMA_getBaseAddr(gEdmaHandle[0]), 0, 1);
-    for(int i = 0; i < SIZE; ++i){
-        testsrc[i] = 0xCD;
-        testdst[i] = 0x00;
-    }   
-
-edma_write(EDMA_getBaseAddr(gEdmaHandle[0]), 0, 1);
-    
-
-    while(1)__asm__("wfi");
-}
