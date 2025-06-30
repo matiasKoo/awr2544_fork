@@ -204,7 +204,7 @@ static void main_task(void *args){
     
     mmw_start(gMmwHandle, &err);
     SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
-        edma_write();
+   //     edma_write();
     MMWave_stop(gMmwHandle, &err);
 
     DebugP_log("done\r\n");
@@ -264,7 +264,7 @@ static void init_task(void *args){
     DebugP_assert(gMmwHandle != NULL);
 
     uint32_t adcaddr = ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure(&gTestBuff, (void*)adcaddr, CFG_PROFILE_NUMADCSAMPLES * sizeof(uint16_t));
+    edma_configure((void*)&gTestBuff, (void*)adcaddr, 1024);
  
 
     DebugP_log("Synchronizing...\r\n");
@@ -351,6 +351,8 @@ void btn_isr(void *arg){
 
 void chirp_isr(void *arg){
     SemaphoreP_post(&gAdcSampledSem);
+    edma_write();
+
     return;
 }
 

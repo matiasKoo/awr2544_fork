@@ -26,6 +26,9 @@ static size_t gSize;
 
 
 static void edma_cb(Edma_IntrHandle intrHandle, void *args){
+    CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
+    CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
+
 }
 
 void edma_write(){
@@ -33,10 +36,14 @@ void edma_write(){
     CacheP_wb(gSrcBuff , gSize, CacheP_TYPE_ALL);
     CacheP_wb(gDstBuff, gSize, CacheP_TYPE_ALL);
 
-    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_MANUAL);
+    volatile uint32_t *addr = (uint32_t*)(EDMA_getBaseAddr(gEdmaHandle[0])+0x1010);
+    *addr = 0b1;
 
-    CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
-    CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
+
+//    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_MANUAL);
+
+    //CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
+    //CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
     DebugP_log("Done\r\n");
 }
 
@@ -81,7 +88,7 @@ void edma_configure(void *dst, void *src, size_t n){
     edmaparam.srcAddr       = (uint32_t) SOC_virtToPhy(srcp);
     edmaparam.destAddr      = (uint32_t) SOC_virtToPhy(dstp);
     edmaparam.aCnt          = (uint16_t) n;     // (assuming this works,) do everything in one dimension
-    edmaparam.bCnt          = (uint16_t) 1U;    // With just one array
+    edmaparam.bCnt          = (uint16_t) 1U;    
     edmaparam.cCnt          = (uint16_t) 1U;    // in one block
     edmaparam.bCntReload    = 0U;
     edmaparam.srcBIdx       = 0U;
@@ -104,6 +111,8 @@ void edma_configure(void *dst, void *src, size_t n){
         DebugP_assert(ret == 0);
 
     DebugP_log("Edma initialized\r\n");
+EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_EVENT);
+
 
 }
 
