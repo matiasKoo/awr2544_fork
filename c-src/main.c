@@ -33,12 +33,13 @@
 /* TI Header files */
 #include <stdlib.h>
 
-#include "ti_drivers_config.h"
-#include "ti_board_config.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "ti_drivers_open_close.h"
 #include "ti_board_open_close.h"
+#include "ti_drivers_config.h"
+#include "ti_board_config.h"
 
 #include <drivers/uart.h>
 #include <drivers/adcbuf.h>
@@ -58,7 +59,7 @@
 #include <adcbuf.h>
 #include <edma.h>
 #include <cfg.h>
-
+#include <gpio.h>
 
 /* Task related macros */
 #define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     // must be higher than INIT_TASK_PRI
@@ -104,7 +105,6 @@ static void main_task(void*);
 
 /* Other functions */
 static inline void fail(void);
-void init_butt(void);
 
 
 /* == Global Variables == */
@@ -117,10 +117,8 @@ SemaphoreP_Object gAdcSampledSem;
 
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
-static uint32_t gGpioBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
-//static struct edmainfo gEdmaInfo;
-
-static uint16_t gTestBuff[CFG_PROFILE_NUMADCSAMPLES] __attribute__((aligned(CacheP_CACHELINE_ALIGNMENT)));
+static uint32_t gPushButtonBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
+static uint8_t gTestBuff[SAMPLE_BUFF_SIZE] __attribute__((section(".bss.dss_l3")));
 
 
 static inline void fail(void){
@@ -131,47 +129,6 @@ static inline void fail(void){
 
 void edma_callback(Edma_IntrHandle handle, void *args){
     DebugP_log("Edma callback called\r\n");
-}
-
-
-void init_butt(){
-    int32_t ret = 0;
-    gGpioBaseAddr = (uint32_t)AddrTranslateP_getLocalAddr(gGpioBaseAddr);
-    const uint32_t pinnum = GPIO_PUSH_BUTTON_PIN;
-    const uint32_t intrnum = GPIO_PUSH_BUTTON_INTR_LEVEL == GPIO_INTR_LEVEL_HIGH ? 
-                        GPIO_PUSH_BUTTON_INTR_HIGH : GPIO_PUSH_BUTTON_INTR_LOW;
-
-    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
-    const uint32_t ledpin = GPIO_LED_PIN;
-    GPIO_setDirMode(ledaddr, ledpin, GPIO_LED_DIR);
-
-    GPIO_setDirMode(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_DIR);
-
-    ret = GPIO_ignoreOrHonorPolarity(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
-    if(ret != 0){ DebugP_log("Failed to ignore or honor polarity\r\n");}
-
-    ret = GPIO_setTrigType(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_TRIG_TYPE);
-    if(ret != 0){ DebugP_log("Failed to set trig type\r\n");}
-
-    ret = GPIO_markHighLowLevelInterrupt(gGpioBaseAddr, pinnum, GPIO_PUSH_BUTTON_INTR_LEVEL);
-    if(ret != 0){ DebugP_log("Failed to mark\r\n");}
-
-    ret = GPIO_clearInterrupt(gGpioBaseAddr, pinnum);
-    if(ret != 0){ DebugP_log("Failed to clear\r\n");}
-
-    ret = GPIO_enableInterrupt(gGpioBaseAddr, pinnum);
-    if(ret != 0){ DebugP_log("Failed to enable\r\n");}
-
-    HwiP_Object hwiobj;
-    HwiP_Params params;
-    HwiP_Params_init(&params);
-    params.intNum = intrnum;
-    params.args = (void*)pinnum;
-    params.callback = &btn_isr;
-    ret = HwiP_construct(&hwiobj, &params);
-    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
-    HwiP_enable();
-
 }
 
 
@@ -199,7 +156,7 @@ static void main_task(void *args){
 
     ret = SemaphoreP_constructBinary(&gAdcSampledSem, 0);
     
-    init_butt();
+    gPushButtonBaseAddr = gpio_init(&btn_isr);
   //  DebugP_log("Press SW2 to toggle the radar on/off\r\n");
     
     mmw_start(gMmwHandle, &err);
@@ -264,7 +221,7 @@ static void init_task(void *args){
     DebugP_assert(gMmwHandle != NULL);
 
     uint32_t adcaddr = ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure((void*)&gTestBuff, (void*)adcaddr, 1024);
+    edma_configure((void*)&gTestBuff, (void*)adcaddr, SAMPLE_BUFF_SIZE);
  
 
     DebugP_log("Synchronizing...\r\n");
@@ -337,15 +294,12 @@ static void init_task(void *args){
 void btn_isr(void *arg){
     uint32_t pending;
     uint32_t pin = (uint32_t)arg;
-    const uint32_t ledaddr = (uint32_t)AddrTranslateP_getLocalAddr(GPIO_LED_BASE_ADDR);
 
-    pending = GPIO_getHighLowLevelPendingInterrupt(gGpioBaseAddr, pin);
+    pending = GPIO_getHighLowLevelPendingInterrupt(gPushButtonBaseAddr, pin);
     GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
     if(pending){
-        gState = gState ? 0 : 1;
-        gState ? GPIO_pinWriteHigh(ledaddr, GPIO_LED_PIN) : GPIO_pinWriteLow(ledaddr,GPIO_LED_PIN);
-    }
-
+        gState = led_state(!gState);
+    }    
 }
 
 
