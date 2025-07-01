@@ -60,6 +60,7 @@
 #include <edma.h>
 #include <cfg.h>
 #include <gpio.h>
+#include <hwa.h>
 
 /* Task related macros */
 #define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     // must be higher than INIT_TASK_PRI
@@ -127,6 +128,7 @@ static inline void fail(void){
     while(1) __asm__ volatile("wfi");
 }
 
+
 void edma_callback(Edma_IntrHandle handle, void *args){
     DebugP_log("Edma callback called\r\n");
 }
@@ -165,6 +167,13 @@ static void main_task(void *args){
     MMWave_stop(gMmwHandle, &err);
 
     DebugP_log("done\r\n");
+    uint32_t paramregs = (uint32_t)HWA_getParamSetAddr(gHwaHandle[0], 0);
+    DebugP_log("Params at address %#x\r\n",paramregs);
+    
+    ClockP_sleep(1);
+    DebugP_log("Launching HWA\r\n");
+    ret = HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
+    DebugP_log("ret is %d\r\n", ret);
     while(1) __asm__("wfi");
 
     while(1){
@@ -221,9 +230,12 @@ static void init_task(void *args){
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
 
+    uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
+    hwaaddr += 0x4000;
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure((void*)&gTestBuff, (void*)adcaddr, SAMPLE_BUFF_SIZE);
+    edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
  
+    DebugP_log("HWA address is %#x\r\n",hwaaddr);
 
     DebugP_log("Synchronizing...\r\n");
 
