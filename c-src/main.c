@@ -216,11 +216,12 @@ static void init_task(void *args){
     DebugP_log("Init task launched\r\n");
 
     /* init adc and mmwave */
-    adcbuf_init(gADCBufHandle);
+    gADCBufHandle = adcbuf_init();
+    DebugP_assert(gADCBufHandle != NULL);
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
 
-    uint32_t adcaddr = ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
     edma_configure((void*)&gTestBuff, (void*)adcaddr, SAMPLE_BUFF_SIZE);
  
 

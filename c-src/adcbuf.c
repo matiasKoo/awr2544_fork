@@ -2,9 +2,10 @@
 #include <kernel/dpl/DebugP.h>
 
 
-int32_t adcbuf_init(ADCBuf_Handle handle){
+ADCBuf_Handle adcbuf_init(){
     int32_t ret = 0;
     ADCBuf_Params ADCBufParams;
+    ADCBuf_Handle handle;
     DebugP_log("Initializing ADC...\r\n");
 
     ADCBuf_Params_init(&ADCBufParams);
@@ -31,15 +32,15 @@ int32_t adcbuf_init(ADCBuf_Handle handle){
     ret = ADCBuf_control(handle, ADCBufMMWave_CMD_CONF_DATA_FORMAT, &datafmt);
     if(ret != 0){ 
         DebugP_logError("Failed to conf data fmt\r\n"); 
-        return ret; 
+        return NULL;  
     }
 
     ret = ADCBuf_control(handle, ADCBufMMWave_CMD_CHANNEL_ENABLE, &chanconf);
     if(ret != 0){ 
         DebugP_logError("Failed to conf channels\r\n"); 
-        return ret; 
+        return NULL; 
     }
 
     DebugP_log("ADC configured!\r\n");
-    return 0;
+    return handle;
 }
