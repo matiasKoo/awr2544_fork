@@ -31,6 +31,7 @@ static void edma_cb(Edma_IntrHandle intrHandle, void *args){
 
 }
 
+
 void edma_write(){
     DebugP_log("Transferring\r\n");
     CacheP_wb(gSrcBuff , gSize, CacheP_TYPE_ALL);
@@ -38,18 +39,9 @@ void edma_write(){
 
     volatile uint32_t *addr = (uint32_t*)(EDMA_getBaseAddr(gEdmaHandle[0])+0x1010);
     *addr = 0b1;
-
-
-//    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_MANUAL);
-
-    //CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
-    //CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
     DebugP_log("Done\r\n");
 }
 
-void __attribute__((noinline)) foo(){
-    DebugP_log("Foo\r\n");
-}
 
 void edma_configure(void *dst, void *src, size_t n){
     uint32_t base = 0;
@@ -110,9 +102,7 @@ void edma_configure(void *dst, void *src, size_t n){
     ret = EDMA_registerIntr(gEdmaHandle[0], &gIntrObj);
         DebugP_assert(ret == 0);
 
+    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_EVENT);
     DebugP_log("Edma initialized\r\n");
-EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_EVENT);
-
-
 }
 
