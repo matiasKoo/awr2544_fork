@@ -26,18 +26,16 @@ static size_t gSize;
 
 
 static void edma_cb(Edma_IntrHandle intrHandle, void *args){
-    CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
-    CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
+//    CacheP_inv(gSrcBuff, gSize, CacheP_TYPE_ALL);
+//    CacheP_inv(gDstBuff, gSize, CacheP_TYPE_ALL);
 
 }
 
 
 void edma_write(){
     DebugP_log("Transferring\r\n");
-    CacheP_wb(gSrcBuff , gSize, CacheP_TYPE_ALL);
-    CacheP_wb(gDstBuff, gSize, CacheP_TYPE_ALL);
-
-    volatile uint32_t *addr = (uint32_t*)(EDMA_getBaseAddr(gEdmaHandle[0])+0x1010);
+    // Write 1 to EDMA_TPCC_ESR to trigger a transfer
+    volatile uint32_t * const addr = (uint32_t*)(EDMA_getBaseAddr(gEdmaHandle[0])+0x1010);
     *addr = 0b1;
     DebugP_log("Done\r\n");
 }
