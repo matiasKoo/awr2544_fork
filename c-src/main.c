@@ -163,17 +163,15 @@ static void main_task(void *args){
     
     mmw_start(gMmwHandle, &err);
     SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
-   //     edma_write();
     MMWave_stop(gMmwHandle, &err);
 
     DebugP_log("done\r\n");
-    uint32_t paramregs = (uint32_t)HWA_getParamSetAddr(gHwaHandle[0], 0);
+    uint32_t paramregs = (uint32_t)SOC_virtToPhy(HWA_getParamSetAddr(gHwaHandle[0], 0));
     DebugP_log("Params at address %#x\r\n",paramregs);
     
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
-    ret = HWA_setSoftwareTrigger(gHwaHandle[0], HWA_TRIG_MODE_SOFTWARE);
-    DebugP_log("ret is %d\r\n", ret);
+    hwa_run(gHwaHandle);
     while(1) __asm__("wfi");
 
     while(1){
@@ -222,6 +220,7 @@ static void init_task(void *args){
     Drivers_open();
     Board_driversOpen(); 
 
+
     DebugP_log("Init task launched\r\n");
 
     /* init adc and mmwave */
@@ -229,10 +228,11 @@ static void init_task(void *args){
     DebugP_assert(gADCBufHandle != NULL);
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
-
+    DebugP_log("Configuring HWA\r\n");
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
-    hwaaddr += 0x4000;
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+    hwa_manual(gHwaHandle[0]);
+    DebugP_log("Done\r\n");
     edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
  
     DebugP_log("HWA address is %#x\r\n",hwaaddr);
