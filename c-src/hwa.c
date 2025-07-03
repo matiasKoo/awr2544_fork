@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <drivers/hwa.h>
 #include "ti_drivers_config.h"
 
@@ -156,20 +157,20 @@ void hwa_manual(HWA_Handle handle){
     // i/q swap = 0 (doesn't matter for real)
     // don't conjugate
     pparam->SRC |= (1U << SRC_SRCREAL_START);   // SRCREAL
+    pparam->SRC |= (3U << SRC_SRCSCAL_START);   // SCALE
 
     // leave rest as 0 for
-    // 32 bit output
-    // complex
+    // 16 bit output
     // i/q swap = 0
+    // complex
     // don't conjugate
-    pparam->DST |= (1U << DST_DST16b32b_START);  // 32 bit output
-    pparam->DST |= (1U << DST_DSTSIGNED_START);  // signed
+    pparam->DST |= (1U << DST_DSTSIGNED_START);
+    pparam->DST |= (3U << DST_DSTSCAL_START);    // scale
 
 
     // SRCAIDX and DSTAIDX
-    pparam->SRCA = 2; // << SRCA_SRCAINDX_START;
-    pparam->DSTA = 4; // << DSTA_DSTAINDX_START;
-
+    pparam->SRCA |= (2U << SRCA_SRCAINDX_START); // 16 bit input means 2 bytes separate each sample
+    pparam->DSTA |= (4U << DSTA_DSTAINDX_START); // 16 bit complex output so 4 bytes for each
     // SRCACNT and DSTACNT
     pparam->SRCA |= (255U << SRCA_SRCACNT_START);
     pparam->DSTA |= (255U << DSTA_DSTACNT_START);
@@ -179,14 +180,33 @@ void hwa_manual(HWA_Handle handle){
     pparam->DSTB = 0;
 
     // SRCBCNT 
-    pparam->SRCB = (1U << 20);
+    pparam->SRCB |= (1U << 20);
 
-    // FFTEN 0
-    pparam->accelModeParam.FFTPATH.BFLYFFT = 0x0;
+    // FFTEN 1
+    pparam->accelModeParam.FFTPATH.BFLYFFT = 0x1;
+
+    // Not using FFTSIZE_3X_EN so FFT size will be 2^FFTSIZE 
+    pparam->accelModeParam.FFTPATH.BFLYFFT |= (8U << BFLYFFT_FFTSIZE_START); // 256pt fft
+
     // WINEN 0
     pparam->accelModeParam.FFTPATH.POSTPROCWIN = 0x0;
  
 
     pctrl->HWA_ENABLE |= (0b111U << HWA_ENABLE_HWA_EN_START); // enable the accelerator
 
+}
+
+// Print out n samples from addr
+// addr is relative to HWA base memory address
+void hwa_print_samples(HWA_Handle handle, uint16_t addr, size_t n, bool sign){
+    const uint32_t hwa_base = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(handle));
+
+    for(size_t i = 0; i < n; ++i){
+        if(sign){
+            printf("%hd,", *((int16_t*)(hwa_base+addr)+i));
+        }else{
+            printf("%hu,", *((uint16_t*)(hwa_base+addr)+i));
+        }
+        putchar('\n');
+    }
 }
