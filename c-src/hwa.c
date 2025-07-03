@@ -96,17 +96,16 @@ uint32_t hwa_getaddr(HWA_Handle handle){
 
 
 void hwa_run(HWA_Handle handle){
-    HWA_SrcDMAConfig dmacfg = {0};
-
-    HWA_enable(handle, 1U);
-    HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
+    DSSHWACCRegs *pctrl = (DSSHWACCRegs*)gHwaObjectPtr[0]->hwAttrs->ctrlBaseAddr;
+    pctrl->FW2HWA_TRIG_0 |= 1; // software trigger 1
+    //HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
 }
 
 
 void hwa_manual(HWA_Handle handle){
     // powerUpHWA from oob demo mmw_dpc.c
     CSL_dss_rcmRegs *p = (CSL_dss_rcmRegs*)CSL_DSS_RCM_U_BASE;
-    p->DSS_HWA_PD_CTRL  = 0x07007U; //PONIN
+    p->DSS_HWA_PD_CTRL  = 0x07007U; // PONIN
     p->DSS_HWA_PD_CTRL  = 0x77007U; // PGOODIN
     p->DSS_HWA_PD_CTRL  = 0x77077U; // AONIN
     p->DSS_HWA_PD_CTRL  = 0x77777U; // AGOODIN
@@ -156,38 +155,38 @@ void hwa_manual(HWA_Handle handle){
     // unsigned
     // i/q swap = 0 (doesn't matter for real)
     // don't conjugate
-    pparam->SRC |= (1U << 27);   // SRCREAL
+    pparam->SRC |= (1U << SRC_SRCREAL_START);   // SRCREAL
 
     // leave rest as 0 for
     // 32 bit output
     // complex
     // i/q swap = 0
     // don't conjugate
-    pparam->DST |= (1U << 28);  // 32 bit output
-    pparam->DST |= (1U << 29);  // signed
+    pparam->DST |= (1U << DST_DST16b32b_START);  // 32 bit output
+    pparam->DST |= (1U << DST_DSTSIGNED_START);  // signed
 
 
     // SRCAIDX and DSTAIDX
-    pparam->SRCA = 2;
-    pparam->DSTA = 4;
+    pparam->SRCA = 2; // << SRCA_SRCAINDX_START;
+    pparam->DSTA = 4; // << DSTA_DSTAINDX_START;
 
     // SRCACNT and DSTACNT
-    pparam->SRCA |= (255U << 20U);
-    pparam->DSTA |= (255U << 20U);
+    pparam->SRCA |= (255U << SRCA_SRCACNT_START);
+    pparam->DSTA |= (255U << DSTA_DSTACNT_START);
 
     // SRCBIDX and DSTBIDX
     pparam->SRCB = 0;
     pparam->DSTB = 0;
 
     // SRCBCNT 
-    pparam->SRCB = (2U << 20);
+    pparam->SRCB = (1U << 20);
 
-    // FFTEN 1
-    pparam->accelModeParam.FFTPATH.BFLYFFT |= 0x1;
+    // FFTEN 0
+    pparam->accelModeParam.FFTPATH.BFLYFFT = 0x0;
     // WINEN 0
     pparam->accelModeParam.FFTPATH.POSTPROCWIN = 0x0;
+ 
 
-
-
+    pctrl->HWA_ENABLE |= (0b111U << HWA_ENABLE_HWA_EN_START); // enable the accelerator
 
 }
