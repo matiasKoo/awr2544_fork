@@ -208,7 +208,7 @@ static void main_task(void *args){
     DebugP_log("Params at address %#x\r\n",paramregs);
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
-    hwa_test();
+    hwa_run(gHwaHandle[0]);
    // hwa_run(gHwaHandle);
 /*    ClockP_sleep(1);
     DebugP_log("HWA data:\r\n");
