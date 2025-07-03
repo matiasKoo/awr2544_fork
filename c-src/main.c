@@ -208,7 +208,8 @@ static void main_task(void *args){
     DebugP_log("Params at address %#x\r\n",paramregs);
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
-    hwa_run(gHwaHandle);
+    hwa_test();
+   // hwa_run(gHwaHandle);
 /*    ClockP_sleep(1);
     DebugP_log("HWA data:\r\n");
     hwa_print_samples(gHwaHandle[0], 0x8000, 256, true);*/
@@ -267,7 +268,7 @@ static void init_task(void *args){
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
  #ifdef SKIP_MMW
     edma_configure((void*)hwaaddr, (void*)&gTestBuff, SAMPLE_BUFF_SIZE);
-    hwa_manual(gHwaHandle[0]);
+ //   hwa_manual(gHwaHandle[0]);
     DebugP_log("Skipping MMW...\r\n");
 
     goto end;

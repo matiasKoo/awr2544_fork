@@ -24,8 +24,8 @@ static HWA_ParamConfig HwaParamConfig[1] =
         {
             .srcAddr = 0,
             .srcAcnt = 255,
-            .srcAIdx = 0,
-            .srcBcnt = 2,
+            .srcAIdx = 2,
+            .srcBcnt = 0,
             .srcBIdx = 0,
             .srcAcircShift = 0,
             .srcAcircShiftWrap = 0,
@@ -39,15 +39,15 @@ static HWA_ParamConfig HwaParamConfig[1] =
         },
 		.dest =
         {
-            .dstAddr = 16384,
+            .dstAddr = 0x4000,
             .dstAcnt = 255,
             .dstAIdx = 4,
             .dstBIdx = 0,
             .dstRealComplex = HWA_SAMPLES_FORMAT_COMPLEX,
-            .dstWidth = HWA_SAMPLES_WIDTH_32BIT,
+            .dstWidth = HWA_SAMPLES_WIDTH_16BIT,
             .dstSign = HWA_SAMPLES_SIGNED,
             .dstConjugate = HWA_FEATURE_BIT_DISABLE,
-            .dstScale = 0,
+            .dstScale = 3,
             .dstSkipInit = 0,
             .dstIQswap = HWA_FEATURE_BIT_DISABLE,
         },
@@ -57,7 +57,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
             {
                 .mode2X = HWA_FEATURE_BIT_DISABLE,
                 .fftEn = HWA_FEATURE_BIT_ENABLE,
-                .fftSize = 1,
+                .fftSize = 8,
                 .butterflyScaling = 0,
                 .fftSize3xEn = HWA_FEATURE_BIT_DISABLE,
                 .windowEn = HWA_FEATURE_BIT_DISABLE,
@@ -87,6 +87,19 @@ HWA_RAMAttrs HwaRamCfg[HWA_NUM_RAMS] =
     {CSL_DSS_HWA_WINDOW_RAM_U_BASE, CSL_DSS_HWA_WINDOW_RAM_U_SIZE}
 };
 
+void hwa_test(){
+    int32_t err;
+    HWA_Handle handle = NULL;
+    handle = HWA_open(0, NULL, &err);
+    DebugP_assert(handle != NULL);
+    HWA_configCommon(handle, &HwaCommonConfig[0]);
+    HWA_configParamSet(handle, 0, &HwaParamConfig[0], NULL);
+    HWA_reset(handle);
+    HWA_enable(handle, 1U);
+    HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
+    //DSSHWACCRegs *pctrl = (DSSHWACCRegs*)gHwaObjectPtr[0]->hwAttrs->ctrlBaseAddr;
+    //pctrl->FW2HWA_TRIG_0 |= 1; // software trigger 1
+}
 
 uint32_t hwa_getaddr(HWA_Handle handle){
     HWA_MemInfo meminfo;
