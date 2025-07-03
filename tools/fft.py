@@ -18,6 +18,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("fname", help="name of .csv file to parse")
 parser.add_argument("-w","--windowing", default=0, type=int, help="windowing mode, default=0:no windowing, 1:hanning, 2:hamming, 3:blackman")
+parser.add_argument("-o", "--output", default="", type=str, help="output computed fft to a file")
 args = parser.parse_args()
 
 fname = args.fname
@@ -52,6 +53,16 @@ windowed_signal = window * data[:,0]
 
 #perform rfft (this is needed as opposed to fft to prevent mirroring in case of real input data)
 fft_result = np.fft.rfft(windowed_signal)
+
+# if -o was supplied, write resulting array to a file and exit
+# TODO: this should probably format it into some sensible csv format 
+if args.output:
+    with open(args.output, "w") as f:
+              f.write(np.array2string(fft_result,separator=","))
+              quit()
+              
+              
+
 
 #compute x axis range values
 ranges = np.arange(fft_result.shape[0]) * range_res
