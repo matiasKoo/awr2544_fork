@@ -47,7 +47,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
             .dstWidth = HWA_SAMPLES_WIDTH_16BIT,
             .dstSign = HWA_SAMPLES_SIGNED,
             .dstConjugate = HWA_FEATURE_BIT_DISABLE,
-            .dstScale = 3,
+            .dstScale = 0,
             .dstSkipInit = 0,
             .dstIQswap = HWA_FEATURE_BIT_DISABLE,
         },
@@ -57,7 +57,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
             {
                 .mode2X = HWA_FEATURE_BIT_DISABLE,
                 .fftEn = HWA_FEATURE_BIT_ENABLE,
-                .fftSize = 8,
+                .fftSize = 8,   // size is 2^fftSize
                 .butterflyScaling = 0,
                 .fftSize3xEn = HWA_FEATURE_BIT_DISABLE,
                 .windowEn = HWA_FEATURE_BIT_DISABLE,
