@@ -76,6 +76,9 @@
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
+#define SKIP_MMW
+
+
 
 /* Task related global variables */
 StackType_t gInitTaskStack[INIT_TASK_SIZE] __attribute__((aligned(32)));
@@ -177,6 +180,7 @@ static void main_task(void *args){
     int32_t ret = 0;
     static bool started = 0;
 
+#ifndef SKIP_MMW
     HwiP_Object hwiobj;
     HwiP_Params params;
     HwiP_Params_init(&params);
@@ -196,9 +200,12 @@ static void main_task(void *args){
     MMWave_stop(gMmwHandle, &err);
 
     DebugP_log("done\r\n");
+#endif /* SKIP_MMW */
+#ifdef SKIP_MMW
+    edma_write();
+#endif 
     uint32_t paramregs = (uint32_t)SOC_virtToPhy(HWA_getParamSetAddr(gHwaHandle[0], 0));
     DebugP_log("Params at address %#x\r\n",paramregs);
-    
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
     hwa_run(gHwaHandle);
@@ -253,18 +260,26 @@ static void init_task(void *args){
 
     DebugP_log("Init task launched\r\n");
 
+    uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
+ #ifdef SKIP_MMW
+    edma_configure((void*)hwaaddr, (void*)&gTestBuff, SAMPLE_BUFF_SIZE);
+    hwa_manual(gHwaHandle[0]);
+    DebugP_log("Skipping MMW...\r\n");
+
+    goto end;
+ #else
     /* init adc and mmwave */
     gADCBufHandle = adcbuf_init();
     DebugP_assert(gADCBufHandle != NULL);
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
     DebugP_log("Configuring HWA\r\n");
-    uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
     hwa_manual(gHwaHandle[0]);
     DebugP_log("Done\r\n");
-    edma_configure((void*)hwaaddr, (void*)&gTestBuff, SAMPLE_BUFF_SIZE);
+    edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
  
+
     DebugP_log("HWA address is %#x\r\n",hwaaddr);
 
     DebugP_log("Synchronizing...\r\n");
@@ -313,7 +328,8 @@ static void init_task(void *args){
     }
 
     DebugP_log("Configured!\r\n");
-
+#endif /* SKIP_MMW */
+end:
     DebugP_log("Creating main task...\r\n");
     gMainTask = xTaskCreateStatic(
         main_task,      /*  Pointer to the function that implements the task. */
