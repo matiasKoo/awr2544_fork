@@ -87,19 +87,6 @@ HWA_RAMAttrs HwaRamCfg[HWA_NUM_RAMS] =
     {CSL_DSS_HWA_WINDOW_RAM_U_BASE, CSL_DSS_HWA_WINDOW_RAM_U_SIZE}
 };
 
-void hwa_test(){
-    int32_t err;
-    HWA_Handle handle = NULL;
-    handle = HWA_open(0, NULL, &err);
-    DebugP_assert(handle != NULL);
-    HWA_configCommon(handle, &HwaCommonConfig[0]);
-    HWA_configParamSet(handle, 0, &HwaParamConfig[0], NULL);
-    HWA_reset(handle);
-    HWA_enable(handle, 1U);
-    HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
-    //DSSHWACCRegs *pctrl = (DSSHWACCRegs*)gHwaObjectPtr[0]->hwAttrs->ctrlBaseAddr;
-    //pctrl->FW2HWA_TRIG_0 |= 1; // software trigger 1
-}
 
 uint32_t hwa_getaddr(HWA_Handle handle){
     HWA_MemInfo meminfo;
@@ -110,12 +97,17 @@ uint32_t hwa_getaddr(HWA_Handle handle){
 
 
 void hwa_run(HWA_Handle handle){
-    DSSHWACCRegs *pctrl = (DSSHWACCRegs*)gHwaObjectPtr[0]->hwAttrs->ctrlBaseAddr;
-    pctrl->FW2HWA_TRIG_0 |= 1; // software trigger 1
-    //HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
+    HWA_configCommon(handle, &HwaCommonConfig[0]);
+    HWA_configParamSet(handle, 0, &HwaParamConfig[0], NULL);
+    HWA_reset(handle);
+    HWA_enable(handle, 1U);
+
+    HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
 }
 
 
+
+// left for reference
 void hwa_manual(HWA_Handle handle){
     // powerUpHWA from oob demo mmw_dpc.c
     CSL_dss_rcmRegs *p = (CSL_dss_rcmRegs*)CSL_DSS_RCM_U_BASE;
