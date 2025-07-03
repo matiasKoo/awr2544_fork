@@ -124,7 +124,7 @@ volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
 static uint32_t gPushButtonBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
 
 // Known values from a previous measurement to see if the HWA is doing things right
-static uint16_t gTestBuff[] = {816,617,442,237,55,65414,65328,65238,65228,
+static const uint16_t gTestBuff[] = {816,617,442,237,55,65414,65328,65238,65228,
 65287,65235,65226,65174,65102,65064,64975,64924,64896,
 64879,64919,65003,65063,65187,65300,65422,6,63,
 147,184,201,166,171,243,268,268,322,
@@ -209,6 +209,10 @@ static void main_task(void *args){
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
     hwa_run(gHwaHandle);
+/*    ClockP_sleep(1);
+    DebugP_log("HWA data:\r\n");
+    hwa_print_samples(gHwaHandle[0], 0x8000, 256, true);*/
+
     while(1) __asm__("wfi");
 
     while(1){
