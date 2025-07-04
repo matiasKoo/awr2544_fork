@@ -34,7 +34,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
             .srcWidth = HWA_SAMPLES_WIDTH_16BIT,
             .srcSign = HWA_SAMPLES_UNSIGNED,
             .srcConjugate = HWA_FEATURE_BIT_DISABLE,
-            .srcScale = 0,
+            .srcScale = 8,
             .srcIQSwap = HWA_FEATURE_BIT_DISABLE,
         },
 		.dest =
@@ -47,7 +47,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
             .dstWidth = HWA_SAMPLES_WIDTH_16BIT,
             .dstSign = HWA_SAMPLES_SIGNED,
             .dstConjugate = HWA_FEATURE_BIT_DISABLE,
-            .dstScale = 0,
+            .dstScale = 8,
             .dstSkipInit = 0,
             .dstIQswap = HWA_FEATURE_BIT_DISABLE,
         },
