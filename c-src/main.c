@@ -110,6 +110,8 @@ static void main_task(void*);
 /* Other functions */
 static inline void fail(void);
 
+extern void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/);
+
 
 /* == Global Variables == */
 /* Handles */
@@ -209,10 +211,10 @@ static void main_task(void *args){
     ClockP_sleep(1);
     DebugP_log("Launching HWA\r\n");
     hwa_run(gHwaHandle[0]);
-   // hwa_run(gHwaHandle);
     ClockP_sleep(1);
     DebugP_log("HWA data:\r\n");
-    hwa_print_samples(gHwaHandle[0], 0x4000, 512, true);
+    void *hwaout = (void*)hwa_getaddr(gHwaHandle[0]);
+    uart_dump_samples(hwaout, 256);
 
     while(1) __asm__("wfi");
 
