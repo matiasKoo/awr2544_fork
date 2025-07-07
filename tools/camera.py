@@ -3,8 +3,14 @@ import serial
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import argparse
 
-ser = serial.Serial(port='/dev/ttyACM0',baudrate=115200);
+
+parser = argparse.ArgumentParser()
+parser.add_argument("port", help="port")
+args = parser.parse_args()
+
+ser = serial.Serial(port=args.port,baudrate=115200);
 
 range_res = 0.39
 
