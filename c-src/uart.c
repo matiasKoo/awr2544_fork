@@ -15,8 +15,6 @@
 // sign - 0 = unsigned, 1 = signed
 // bits - 0 = 16b, 1 = 32b
 void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/){
-
-
     int32_t transferOk;
     UART_Transaction transaction;
     size_t charlen;
@@ -31,14 +29,25 @@ void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/
     charlen = snprintf(NULL, 0, "%hd,", (int16_t)INT16_MIN) + 1;
     txbuff = calloc(charlen, sizeof(char));
 
+    // Send STX
+    *txbuff = 0x2;
+    transaction.count = 1;
+    transaction.buf = (void*)txbuff;
+    UART_write(gUartHandle[0], &transaction);
+
+    // write the actual numbers
     // just assume it'll be 16 bit complex so we have n*2 values 
     for(size_t i = 0; i < n * 2; ++i){
         // probaly a bad idea but it'll work for now
         transaction.count = snprintf(txbuff, charlen, "%hd,", samples[i]);
-        transaction.buf = (void*)txbuff;
-        UART_write(gUartHandle, &transaction);
+        UART_write(gUartHandle[0], &transaction);
 
     }
+    // send ETX
+    memset(txbuff, 0, charlen * sizeof(char));
+    *txbuff = 0x3;
+    transaction.count = 1;
+    UART_write(gUartHandle[0], &transaction);
 
     free(txbuff);
 }
