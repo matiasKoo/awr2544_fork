@@ -121,7 +121,7 @@ MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
 SemaphoreP_Object gAdcSampledSem;
 SemaphoreP_Object gBtnPressedSem;
-
+SemaphoreP_Object gEdmaDoneSem;
 
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
@@ -167,7 +167,7 @@ static inline void fail(void){
 
 
 void edma_callback(Edma_IntrHandle handle, void *args){
-    DebugP_log("Edma callback called\r\n");
+    SemaphoreP_post(&gEdmaDoneSem);
 }
 
 
@@ -182,6 +182,7 @@ static void exec_task(void *args){
 static void main_task(void *args){
     int32_t err = 0;
     int32_t ret = 0;
+    static bool started = 0;
 
     // TODO: grab this from sysconfig somehow but for now assume bank 2 will be output
     void *hwaout = (void*)(hwa_getaddr(gHwaHandle[0])+0x4000);
@@ -189,28 +190,28 @@ static void main_task(void *args){
     // Enable interrupts
     HwiP_enable();
 
-    DebugP_log("Ready to take a picture\r\n");
+    DebugP_log("Ready to roll\r\n");
 
     while(1){
-        led_state(0);
+        ClockP_usleep(5000);
+        if(gState == 0){led_state(0); continue;}
+        
+        led_state(gState);
 
-        // wait for a button press
-        SemaphoreP_pend(&gBtnPressedSem, SystemP_WAIT_FOREVER);
+        // to give the python script time 
+        ClockP_usleep(1000*1000);
 
         // got one, do a measurement
-        led_state(1);
         mmw_start(gMmwHandle, &err);
 
         // sampling done, stop measuring
         SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
         MMWave_stop(gMmwHandle, &err);
 
+
         // move the samples to HWA input
         edma_write();
-
-        // TODO: this should be handled with an interrupt from the EDMA controller
-        // but for now just sleep for a little bit to make the EDMA has done its thing
-        ClockP_usleep(50 * 1000);
+        SemaphoreP_pend(&gEdmaDoneSem, SystemP_WAIT_FOREVER);
 
         hwa_run(gHwaHandle[0]);
 
@@ -263,7 +264,7 @@ static void init_task(void *args){
     // and EDMA
     DebugP_log("Init edma...\r\n");
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
+    edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
 
     // Not that any should happen but disable interrupts here 
     HwiP_disable();
@@ -287,6 +288,10 @@ static void init_task(void *args){
 
     // Button pressed semaphore
     ret = SemaphoreP_constructBinary(&gBtnPressedSem, 0);
+    DebugP_assert(ret == 0);
+
+    // Edma done semaphore
+    ret = SemaphoreP_constructBinary(&gEdmaDoneSem, 0);
     DebugP_assert(ret == 0);
     
 
@@ -364,7 +369,7 @@ void btn_isr(void *arg){
     pending = GPIO_getHighLowLevelPendingInterrupt(gPushButtonBaseAddr, pin);
     GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
     if(pending){
-        SemaphoreP_post(&gBtnPressedSem);
+      gState = !gState;
     }    
 }
 
@@ -379,26 +384,7 @@ int main(void) {
     System_init();
     Board_init();
 
-/* Define to not run mmw related stuff */
-#ifdef EDMA_TEST
-    Drivers_open();
-    Board_driversOpen(); 
-    //NOTE: remove this or edma dev test will take over
-    gMainTask = xTaskCreateStatic(
-        edma_test,   /* Pointer to the function that implements the task. */
-        "edma task", /* Text name for the task.  This is to facilitate debugging
-                            only. */
-        MAIN_TASK_SIZE, /* Stack depth in units of StackType_t typically uint32_t
-                               on 32b CPUs */
-        NULL,           /* We are not using the task parameter. */
-        configMAX_PRIORITIES-3,  /* task priority, 0 is lowest priority,
-                               configMAX_PRIORITIES-1 is highest */
-        gMainTaskStack, /* pointer to stack base */
-        &gMainTaskObj); /* pointer to statically allocated task object memory */
-    configASSERT(gMainTask != NULL);
-    vTaskStartScheduler();
-    DebugP_assertNoLog(0);
-#else
+
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
    gInitTask = xTaskCreateStatic(
@@ -414,5 +400,4 @@ int main(void) {
     vTaskStartScheduler();
 
     DebugP_assertNoLog(0);
-#endif
 }
