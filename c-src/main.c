@@ -189,6 +189,8 @@ static void main_task(void *args){
     // Enable interrupts
     HwiP_enable();
 
+    DebugP_log("Ready to take a picture\r\n");
+
     while(1){
         led_state(0);
 
