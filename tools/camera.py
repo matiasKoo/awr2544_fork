@@ -48,6 +48,7 @@ while True:
     out = np.add(real, imag)
     out = np.sqrt(out)
 
+    out = out[1:127]
 
     print(out.shape)
 
