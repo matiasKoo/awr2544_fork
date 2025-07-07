@@ -38,7 +38,7 @@ void edma_write(){
 }
 
 
-void edma_configure(void *dst, void *src, size_t n){
+void edma_configure(void *cb, void *dst, void *src, size_t n){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -92,11 +92,11 @@ void edma_configure(void *dst, void *src, size_t n){
     gCh = ch;
     gRegion = 0;
     gIntrObj.tccNum = tcc;
-    gIntrObj.cbFxn = &edma_cb;
+    gIntrObj.cbFxn = cb;
     gIntrObj.appData = (void*)0;
     ret = EDMA_registerIntr(gEdmaHandle[0], &gIntrObj);
         DebugP_assert(ret == 0);
-
+    EDMA_enableEvtIntrRegion(base, region, ch);
     EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_EVENT);
     DebugP_log("Edma initialized\r\n");
 }
