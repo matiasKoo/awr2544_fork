@@ -76,7 +76,7 @@
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
-#define SKIP_MMW
+//#define SKIP_MMW
 
 
 
@@ -120,6 +120,8 @@ ADCBuf_Handle gADCBufHandle = NULL;
 MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 
 SemaphoreP_Object gAdcSampledSem;
+SemaphoreP_Object gBtnPressedSem;
+
 
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
@@ -180,66 +182,42 @@ static void exec_task(void *args){
 static void main_task(void *args){
     int32_t err = 0;
     int32_t ret = 0;
-    static bool started = 0;
 
-#ifndef SKIP_MMW
-    HwiP_Object hwiobj;
-    HwiP_Params params;
-    HwiP_Params_init(&params);
-    params.intNum = CSL_MSS_INTR_RSS_ADC_CAPTURE_COMPLETE;
-    params.args = NULL;
-    params.callback = &chirp_isr;
-    ret = HwiP_construct(&hwiobj, &params);
-    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+    // TODO: grab this from sysconfig somehow but for now assume bank 2 will be output
+    void *hwaout = (void*)(hwa_getaddr(gHwaHandle[0])+0x4000);
 
-    ret = SemaphoreP_constructBinary(&gAdcSampledSem, 0);
-    
-    gPushButtonBaseAddr = gpio_init(&btn_isr);
-  //  DebugP_log("Press SW2 to toggle the radar on/off\r\n");
-    
-    mmw_start(gMmwHandle, &err);
-    SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
-    MMWave_stop(gMmwHandle, &err);
-
-    DebugP_log("done\r\n");
-#endif /* SKIP_MMW */
-#ifdef SKIP_MMW
-    edma_write();
-#endif 
-    uint32_t paramregs = (uint32_t)SOC_virtToPhy(HWA_getParamSetAddr(gHwaHandle[0], 0));
-    DebugP_log("Params at address %#x\r\n",paramregs);
-    ClockP_sleep(1);
-    DebugP_log("Launching HWA\r\n");
-    hwa_run(gHwaHandle[0]);
-    ClockP_sleep(1);
-    DebugP_log("HWA data:\r\n");
-    void *hwaout = (void*)hwa_getaddr(gHwaHandle[0]);
-    uart_dump_samples(hwaout, 256);
-
-    while(1) __asm__("wfi");
+    // Enable interrupts
+    HwiP_enable();
 
     while(1){
-        if(gState == 1 && started == 0){
-            ret = mmw_start(gMmwHandle, &err);
-            if(ret != 0){
-                mmw_printerr("Failed to start", err);
-                fail();
-            }
+        led_state(0);
 
-            DebugP_log("Started\r\n");
-            started = 1;
-        }else if(gState == 0 && started == 1){
-            ret = MMWave_stop(gMmwHandle, &err);
-            if(ret != 0){
-                mmw_printerr("Failed to stop", err);
-                fail();
-            }
-            DebugP_log("Stopped\r\n");
-            started = 0;
-        }
+        // wait for a button press
+        SemaphoreP_pend(&gBtnPressedSem, SystemP_WAIT_FOREVER);
 
-        ClockP_usleep(50000);
+        // got one, do a measurement
+        led_state(1);
+        mmw_start(gMmwHandle, &err);
 
+        // sampling done, stop measuring
+        SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
+        MMWave_stop(gMmwHandle, &err);
+
+        // move the samples to HWA input
+        edma_write();
+
+        // TODO: this should be handled with an interrupt from the EDMA controller
+        // but for now just sleep for a little bit to make the EDMA has done its thing
+        ClockP_usleep(50 * 1000);
+
+        hwa_run(gHwaHandle[0]);
+
+        // TODO: same thing here, the HWA should have be able to generate an interrupt when done
+        // but again just sleep a bit to make sure it's done its thing
+        ClockP_usleep(50 * 1000);
+
+        // write out hwa output to UART
+        uart_dump_samples(hwaout, 256);
     }
 }
 
@@ -267,27 +245,48 @@ static void init_task(void *args){
 
     DebugP_log("Init task launched\r\n");
 
+    // assume for now that input memory will be at HWA base
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
- #ifdef SKIP_MMW
-    edma_configure((void*)hwaaddr, (void*)&gTestBuff, SAMPLE_BUFF_SIZE);
- //   hwa_manual(gHwaHandle[0]);
-    DebugP_log("Skipping MMW...\r\n");
 
-    goto end;
- #else
-    /* init adc and mmwave */
+    // init adc
+    DebugP_log("Init adc...\r\n");
     gADCBufHandle = adcbuf_init();
     DebugP_assert(gADCBufHandle != NULL);
+
+    // and mmw
+    DebugP_log("Init mmw...\r\n");
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
-    DebugP_log("Configuring HWA\r\n");
-    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    hwa_manual(gHwaHandle[0]);
-    DebugP_log("Done\r\n");
-    edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
- 
 
-    DebugP_log("HWA address is %#x\r\n",hwaaddr);
+    // and EDMA
+    DebugP_log("Init edma...\r\n");
+    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
+    edma_configure((void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
+
+    // Not that any should happen but disable interrupts here 
+    HwiP_disable();
+
+    // ADC sampling done interrupt
+    HwiP_Object hwiobj;
+    HwiP_Params params;
+    HwiP_Params_init(&params);
+    params.intNum = CSL_MSS_INTR_RSS_ADC_CAPTURE_COMPLETE;
+    params.args = NULL;
+    params.callback = &chirp_isr;
+    ret = HwiP_construct(&hwiobj, &params);
+    if(ret != 0){ DebugP_log("Failed to construct\r\n");}
+
+    // Push button interrupt
+    gPushButtonBaseAddr = gpio_init(&btn_isr);
+
+    // ADC sampling done semaphore
+    ret = SemaphoreP_constructBinary(&gAdcSampledSem, 0);
+    DebugP_assert(ret == 0);
+
+    // Button pressed semaphore
+    ret = SemaphoreP_constructBinary(&gBtnPressedSem, 0);
+    DebugP_assert(ret == 0);
+    
 
     DebugP_log("Synchronizing...\r\n");
 
@@ -335,8 +334,7 @@ static void init_task(void *args){
     }
 
     DebugP_log("Configured!\r\n");
-#endif /* SKIP_MMW */
-end:
+
     DebugP_log("Creating main task...\r\n");
     gMainTask = xTaskCreateStatic(
         main_task,      /*  Pointer to the function that implements the task. */
@@ -364,16 +362,13 @@ void btn_isr(void *arg){
     pending = GPIO_getHighLowLevelPendingInterrupt(gPushButtonBaseAddr, pin);
     GPIO_clearInterrupt(GPIO_PUSH_BUTTON_BASE_ADDR, pin);
     if(pending){
-        gState = led_state(!gState);
+        SemaphoreP_post(&gBtnPressedSem);
     }    
 }
 
 
 void chirp_isr(void *arg){
     SemaphoreP_post(&gAdcSampledSem);
-    edma_write();
-
-    return;
 }
 
 
