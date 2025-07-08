@@ -7,6 +7,7 @@
  *   uses this stack.
  * - After vTaskStartScheduler() each task created in FreeRTOS has its own stack
  */
+//--stack_size=16384
 --stack_size=16384
 /* This is the heap size for malloc() API in NORTOS and FreeRTOS
  * This is also the heap used by pvPortMalloc in FreeRTOS
@@ -118,7 +119,8 @@ MEMORY
     /* when using multi-core application's i.e more than one R5F active, make sure
      * this memory does not overlap with other R5F's
      */
-    MSS_L2     : ORIGIN = 0x10260000 , LENGTH = 0x78000
+    //MSS_L2     : ORIGIN = 0x10260000 , LENGTH = 0x78000
+    MSS_L2      : ORIGIN = 0x10260000 , LENGTH = 0xA27000
 
     /* This is typically used to hold data IO buffers from accelerators like CSI, HWA */
     DSS_L3:   ORIGIN = 0x88000000, LENGTH = 0x000F0000
@@ -127,8 +129,11 @@ MEMORY
     /* On R5F,
      * - make sure there are MPU entries which maps below regions as non-cache
      */
-    USER_SHM_MEM            : ORIGIN = 0x102D8000, LENGTH = 0x00004000
-    LOG_SHM_MEM             : ORIGIN = 0x102DC000, LENGTH = 0x00004000
+ //   USER_SHM_MEM            : ORIGIN = 0x102D8000, LENGTH = 0x00004000
+    USER_SHM_MEM            : ORIGIN = 0x10C87000, LENGTH = 0x00004000
+//    LOG_SHM_MEM             : ORIGIN = 0x102DC000, LENGTH = 0x00004000
+    LOG_SHM_MEM             : ORIGIN = 0x10C8B000, LENGTH = 0x00004000
+
     /* 1st 512 B of DSS mailbox memory and MSS mailbox memory is used for IPC with R4 and should not be used by application */
     /* MSS mailbox memory is used as shared memory, we dont use bottom 32*6 bytes, since its used as SW queue by ipc_notify */
     RTOS_NORTOS_IPC_SHM_MEM : ORIGIN = 0xC5000200, LENGTH = 0xD40
