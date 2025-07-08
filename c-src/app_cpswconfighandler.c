@@ -33,6 +33,7 @@
 /* ========================================================================== */
 /*                             Include Files                                  */
 /* ========================================================================== */
+#ifdef disable
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -236,3 +237,4 @@ static void EnetApp_portLinkStatusChangeCb(Enet_MacPort macPort,
     EnetAppUtils_print("MAC Port %u: link %s\r\n",
                        ENET_MACPORT_ID(macPort), isLinkUp ? "up" : "down");
 }
+#endif

@@ -79,7 +79,7 @@
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
-#define ENET_TEST
+//#define ENET_TEST
 
 
 

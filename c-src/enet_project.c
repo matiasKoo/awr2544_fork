@@ -1,3 +1,4 @@
+#ifdef disable
 #include <stdint.h>
 
 #include "FreeRTOS.h"
@@ -53,6 +54,11 @@ void init_cb(){
 
 }
 
+static inline int32_t App_isNetworkUp(struct netif* netif_)
+{
+    return (netif_is_up(netif_) && netif_is_link_up(netif_) && !ip4_addr_isany_val(*netif_ip4_addr(netif_)));
+}
+
 
 void enet_test(){
     int32_t status = ENET_SOK;
@@ -98,6 +104,28 @@ void enet_test(){
     sys_sem_free(&pInitSem);
 
 
+    uint32_t netupMask = 0;
+    /* wait for atleast one Network Interface to get IP */
+    while (netupMask == 0)
+    {
+        for(uint32_t netifIdx = 0; netifIdx < ENET_SYSCFG_NETIF_COUNT; netifIdx++)
+        {
+            if (App_isNetworkUp(g_pNetif[netifIdx]))
+            {
+                netupMask |= (1 << netifIdx);
+            }
+            else
+            {
+                DebugP_log("[%d]Waiting for network UP ...\r\n",g_pNetif[netifIdx]->num);
+            }
+            ClockP_sleep(2);
+        }
+    }
+
+    DebugP_log("Network is UP ...\r\n");
+    ClockP_sleep(2);
+
 
     while(1) __asm__ volatile("wfi");
 }
+#endif
