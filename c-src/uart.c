@@ -39,7 +39,7 @@ void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/
     // just assume it'll be 16 bit complex so we have n*2 values 
     for(size_t i = 0; i < n * 2; ++i){
         // probaly a bad idea but it'll work for now
-        transaction.count = snprintf(txbuff, charlen, "%hd,", samples[i]);
+        transaction.count = snprintf((char*)txbuff, charlen, "%hd,", samples[i]);
         UART_write(gUartHandle[0], &transaction);
 
     }
