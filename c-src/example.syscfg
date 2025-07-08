@@ -34,6 +34,8 @@ const mpu_armv73 = mpu_armv7.addInstance();
 const mpu_armv74 = mpu_armv7.addInstance();
 const mpu_armv75 = mpu_armv7.addInstance();
 const mpu_armv76 = mpu_armv7.addInstance();
+const enet_cpsw  = scripting.addModule("/networking/enet_cpsw/enet_cpsw", {}, false);
+const enet_cpsw1 = enet_cpsw.addInstance();
 
 /**
  * Write custom configuration values to the imported modules.
@@ -64,7 +66,8 @@ hwa1.configParamset[0].srcRealComplex = "HWA_SAMPLES_FORMAT_REAL";
 hwa1.configParamset[0].srcAcnt        = 255;
 hwa1.configParamset[0].srcAIdx        = 2;
 hwa1.configParamset[0].dstAcnt        = 255;
-hwa1.configParamset[0].dstAIdx        = 4;
+hwa1.configParamset[0].dstWidth       = "HWA_SAMPLES_WIDTH_32BIT";
+hwa1.configParamset[0].dstAIdx        = 8;
 hwa1.configCommon[0].$name            = "HWA_COMMON_CONFIG0";
 
 qspi1.$name    = "CONFIG_QSPI0";
@@ -72,6 +75,7 @@ qspi1.protocol = "1s_1s_4s";
 
 debug_log.enableUartLog           = true;
 debug_log.uartLog.$name           = "CONFIG_UART0";
+debug_log.uartLog.intrEnable      = "DISABLE";
 debug_log.uartLog.UART.$assign    = "UARTA";
 debug_log.uartLog.UART.RX.$assign = "PAD_DA";
 debug_log.uartLog.UART.TX.$assign = "PAD_DB";
@@ -115,16 +119,54 @@ mpu_armv76.size         = 13;
 mpu_armv76.attributes   = "NonCached";
 mpu_armv76.allowExecute = false;
 
+enet_cpsw1.$name                          = "CONFIG_ENET_CPSW0";
+enet_cpsw1.AppLinkUpPortMask              = "ALL_PORTS";
+enet_cpsw1.PktInfoOnlyEnable              = true;
+enet_cpsw1.LargePoolPktCount              = 32;
+enet_cpsw1.txDmaChannel[0].$name          = "ENET_DMA_TX_CH0";
+enet_cpsw1.rxDmaChannel[0].$name          = "ENET_DMA_RX_CH0";
+enet_cpsw1.pinmux[0].$name                = "ENET_CPSW_PINMUX0";
+enet_cpsw1.pinmux[0].MDIO.DATA.$assign    = "PAD_CM";
+enet_cpsw1.pinmux[0].MDIO.CLK.$assign     = "PAD_CN";
+enet_cpsw1.pinmux[0].RMII.RXD0.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.RXD0.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.RXD0.$assign    = "PAD_CL";
+enet_cpsw1.pinmux[0].RMII.RXD1.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.RXD1.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.RXD1.$assign    = "PAD_CK";
+enet_cpsw1.pinmux[0].RMII.RXER.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.RXER.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.RXER.$assign    = "PAD_BZ";
+enet_cpsw1.pinmux[0].RMII.TXD0.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.TXD0.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.TXD0.$assign    = "PAD_CF";
+enet_cpsw1.pinmux[0].RMII.TXD1.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.TXD1.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.TXD1.$assign    = "PAD_CE";
+enet_cpsw1.pinmux[0].RMII.DV.pu_pd        = "pd";
+enet_cpsw1.pinmux[0].RMII.DV.slewRate     = "high";
+enet_cpsw1.pinmux[0].RMII.DV.$assign      = "PAD_CB";
+enet_cpsw1.pinmux[0].RMII.REFCLK.pu_pd    = "pd";
+enet_cpsw1.pinmux[0].RMII.REFCLK.slewRate = "high";
+enet_cpsw1.pinmux[0].RMII.REFCLK.$assign  = "PAD_CH";
+enet_cpsw1.pinmux[0].RMII.TXEN.pu_pd      = "pd";
+enet_cpsw1.pinmux[0].RMII.TXEN.slewRate   = "high";
+enet_cpsw1.pinmux[0].RMII.TXEN.$assign    = "PAD_CA";
+enet_cpsw1.netifInstance.create(1);
+enet_cpsw1.netifInstance[0].$name         = "NETIF_INST_ID0";
+
 /**
  * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
  * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
  * re-solve from scratch.
  */
-gpio2.GPIO.gpioPin.$suggestSolution = "PAD_AZ";
-qspi1.QSPI["0"].$suggestSolution    = "PAD_AL";
-qspi1.QSPI["1"].$suggestSolution    = "PAD_AM";
-qspi1.QSPI["2"].$suggestSolution    = "PAD_AN";
-qspi1.QSPI["3"].$suggestSolution    = "PAD_AO";
-qspi1.QSPI.$suggestSolution         = "QSPI0";
-qspi1.QSPI.CLK.$suggestSolution     = "PAD_AP";
-qspi1.QSPI.CS.$suggestSolution      = "PAD_AQ";
+gpio2.GPIO.gpioPin.$suggestSolution        = "PAD_AZ";
+qspi1.QSPI["0"].$suggestSolution           = "PAD_AL";
+qspi1.QSPI["1"].$suggestSolution           = "PAD_AM";
+qspi1.QSPI["2"].$suggestSolution           = "PAD_AN";
+qspi1.QSPI["3"].$suggestSolution           = "PAD_AO";
+qspi1.QSPI.$suggestSolution                = "QSPI0";
+qspi1.QSPI.CLK.$suggestSolution            = "PAD_AP";
+qspi1.QSPI.CS.$suggestSolution             = "PAD_AQ";
+enet_cpsw1.pinmux[0].MDIO.$suggestSolution = "MDIO0";
+enet_cpsw1.pinmux[0].RMII.$suggestSolution = "RMII0";
