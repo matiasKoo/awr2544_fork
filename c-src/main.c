@@ -55,12 +55,15 @@
 #include <ti/control/mmwavelink/include/rl_sensor.h>
 
 /* Project header files */
+// TODO: might need to rename these as to not conflict with SDK includes
+// but for now enet is the only one that clashes
 #include <mmw.h>
 #include <adcbuf.h>
 #include <edma.h>
 #include <cfg.h>
 #include <gpio.h>
 #include <hwa.h>
+#include <enet_project.h>
 
 /* Task related macros */
 #define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     // must be higher than INIT_TASK_PRI
@@ -76,7 +79,7 @@
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
-//#define SKIP_MMW
+#define ENET_TEST
 
 
 
@@ -126,37 +129,6 @@ SemaphoreP_Object gEdmaDoneSem;
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
 static uint32_t gPushButtonBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
-
-// Known values from a previous measurement to see if the HWA is doing things right
-static const uint16_t gTestBuff[] = {816,617,442,237,55,65414,65328,65238,65228,
-65287,65235,65226,65174,65102,65064,64975,64924,64896,
-64879,64919,65003,65063,65187,65300,65422,6,63,
-147,184,201,166,171,243,268,268,322,
-357,376,505,596,715,800,717,607,451,
-177,65470,65207,64957,64781,64691,64583,64506,64483,
-64417,64485,64579,64716,64849,64976,65210,65398,52,
-254,358,511,640,739,816,835,870,914,
-924,908,893,827,732,516,373,150,65453,
-65259,65043,64903,64776,64684,64594,64617,64730,64779,
-64891,65018,65075,65168,65300,65417,65511,38,115,
-150,184,296,378,460,586,737,794,797,
-814,810,774,652,550,416,277,153,47,
-65479,65406,65345,65313,65243,65232,65237,65207,65212,
-65213,65194,65083,64987,64848,64820,64799,64805,64884,
-65002,65215,65458,161,404,616,781,855,898,
-932,886,814,711,627,522,449,387,299,
-178,118,65534,65400,65250,65095,64967,64882,64737,
-64630,64662,64708,64785,64909,65044,65154,65279,65394,
-65441,9,68,100,124,213,292,390,554,
-673,836,910,986,987,922,815,657,477,
-215,7,65361,65160,65002,64921,64874,64886,64955,
-65049,65125,65153,65185,65141,65090,64972,64917,64829,
-64855,64883,65047,65265,65493,236,456,624,719,796,801,
-792,739,686,622,589,601,640,706,711,766,692,559,352,34,
-65268,64943,64627,64462,64306,64167,64187,64391,64535,64765,
-65038,65205,65331,65404,65445,65470,65436,65505,
-58,159,312,459,592,756
-};
 
 
 static inline void fail(void){
@@ -385,6 +357,20 @@ int main(void) {
     Board_init();
 
 
+#ifdef ENET_TEST
+    Drivers_open();
+    Board_driversOpen(); 
+    
+   gInitTask = xTaskCreateStatic(
+            enet_test,   
+            "enet task", 
+            INIT_TASK_SIZE,
+            NULL,           
+            INIT_TASK_PRI,  
+            gInitTaskStack, 
+            &gInitTaskObj); 
+    configASSERT(gInitTask != NULL);
+#else
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
    gInitTask = xTaskCreateStatic(
@@ -396,7 +382,7 @@ int main(void) {
             gInitTaskStack, 
             &gInitTaskObj); 
     configASSERT(gInitTask != NULL);
-
+#endif
     vTaskStartScheduler();
 
     DebugP_assertNoLog(0);
