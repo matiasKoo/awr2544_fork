@@ -58,7 +58,7 @@ static inline int32_t App_isNetworkUp(struct netif* netif_)
 }
 
 
-void enet_test(){
+void enet_test(void *args){
     int32_t status = ENET_SOK;
     // Most of this is from the TI example TCP server
     /* Read MAC Port details and enable clock for each ENET instance */
