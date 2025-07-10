@@ -120,7 +120,7 @@ MEMORY
      * this memory does not overlap with other R5F's
      */
     //MSS_L2     : ORIGIN = 0x10260000 , LENGTH = 0x78000
-    MSS_L2      : ORIGIN = 0x10200000 , LENGTH = 0x90A88
+    MSS_L2      : ORIGIN = 0x10200000 , LENGTH = 0x9A000
 
     /* This is typically used to hold data IO buffers from accelerators like CSI, HWA */
     DSS_L3:   ORIGIN = 0x88000000, LENGTH = 0x000F0000

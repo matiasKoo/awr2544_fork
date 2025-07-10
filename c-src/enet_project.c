@@ -1,28 +1,27 @@
-#ifdef disable
-#include <stdint.h>
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include "FreeRTOS.h"
 #include "task.h"
-
+/* lwIP core includes */
 #include "lwip/opt.h"
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"
 #include "lwip/dhcp.h"
-#include <enet_apputils.h>
-#include <enet_board.h>
 
 #include <kernel/dpl/TaskP.h>
 #include <kernel/dpl/ClockP.h>
-#include <kernel/dpl/QueueP.h>
-
+#include <kernel/dpl/ClockP.h>
+#include <networking/enet/utils/include/enet_apputils.h>
+#include <networking/enet/utils/include/enet_board.h>
 #include "ti_board_config.h"
 #include "ti_board_open_close.h"
 #include "ti_drivers_open_close.h"
 #include "ti_enet_config.h"
 #include "ti_enet_open_close.h"
-#include "ti_enet_lwipif.h"
-
 #include "app_cpswconfighandler.h"
+#include "ti_enet_lwipif.h"
 
 static const uint8_t BROADCAST_MAC_ADDRESS[ENET_MAC_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
@@ -47,7 +46,6 @@ static EnetApp_AppEnetInfo gEnetAppParams[ENET_SYSCFG_MAX_ENET_INSTANCES];
 
 /* Handle to the Application interface for the LwIPIf Layer
  */
-LwipifEnetApp_Handle hlwipIfApp = NULL;
 
 
 void init_cb(){
@@ -128,4 +126,3 @@ void enet_test(){
 
     while(1) __asm__ volatile("wfi");
 }
-#endif
