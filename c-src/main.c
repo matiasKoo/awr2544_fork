@@ -355,7 +355,6 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
-#define ENET_TEST
 #ifdef ENET_TEST
     Drivers_open();
     Board_driversOpen(); 
