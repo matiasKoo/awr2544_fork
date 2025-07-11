@@ -1,9 +1,9 @@
 /**
  * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
  * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
- * @cliArgs --device "AWR2544" --part "Default" --package "LOP" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@10.00.00"
- * @v2CliArgs --device "AWR2544" --package "FCCSP (ABL)" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@10.00.00"
- * @versions {"tool":"1.24.1+4189"}
+ * @cliArgs --device "AWR2544" --part "Default" --package "LOP" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@09.01.00"
+ * @v2CliArgs --device "AWR2544" --package "FCCSP (ABL)" --context "r5fss0-0" --product "MCU_PLUS_SDK_AWR2544@09.01.00"
+ * @versions {"tool":"1.24.0+4110"}
  */
 
 /**
@@ -105,23 +105,25 @@ mpu_armv73.size     = 14;
 
 mpu_armv74.$name    = "CONFIG_MPU_REGION3";
 mpu_armv74.baseAddr = 0x10200000;
-mpu_armv74.size     = 20;
+mpu_armv74.size     = 21;
 
-mpu_armv75.$name      = "CONFIG_MPU_REGION4";
-mpu_armv75.baseAddr   = 0x102E0000;
-mpu_armv75.attributes = "NonCached";
-mpu_armv75.size       = 14;
+mpu_armv75.$name        = "CONFIG_MPU_REGION4";
+mpu_armv75.baseAddr     = 0x102E0000;
+mpu_armv75.size         = 16;
+mpu_armv75.attributes   = "NonCached";
+mpu_armv75.allowExecute = false;
 
-mpu_armv76.$name    = "CONFIG_MPU_REGION5";
-mpu_armv76.baseAddr = 0xC5000000;
-mpu_armv76.size     = 20;
+mpu_armv76.$name        = "CONFIG_MPU_REGION5";
+mpu_armv76.baseAddr     = 0xC5000000;
+mpu_armv76.size         = 13;
+mpu_armv76.attributes   = "NonCached";
+mpu_armv76.allowExecute = false;
 
-enet_cpsw1.$name                  = "CONFIG_ENET_CPSW0";
-enet_cpsw1.txDmaChannel[0].$name  = "ENET_DMA_TX_CH0";
-enet_cpsw1.rxDmaChannel[0].$name  = "ENET_DMA_RX_CH0";
-enet_cpsw1.pinmux[0].$name        = "ENET_CPSW_PINMUX0";
-enet_cpsw1.netifInstance.create(1);
-enet_cpsw1.netifInstance[0].$name = "NETIF_INST_ID0";
+enet_cpsw1.$name                 = "CONFIG_ENET_CPSW0";
+enet_cpsw1.cptsRftClkFreq        = "CPSW_CPTS_RFTCLK_FREQ_250MHZ";
+enet_cpsw1.txDmaChannel[0].$name = "ENET_DMA_TX_CH0";
+enet_cpsw1.rxDmaChannel[0].$name = "ENET_DMA_RX_CH0";
+enet_cpsw1.pinmux[0].$name       = "ENET_CPSW_PINMUX0";
 
 /**
  * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
@@ -136,7 +138,6 @@ qspi1.QSPI["3"].$suggestSolution                  = "PAD_AO";
 qspi1.QSPI.$suggestSolution                       = "QSPI0";
 qspi1.QSPI.CLK.$suggestSolution                   = "PAD_AP";
 qspi1.QSPI.CS.$suggestSolution                    = "PAD_AQ";
-enet_cpsw1.pinmux[0].CPTS.$suggestSolution        = "CPTS0";
 enet_cpsw1.pinmux[0].MDIO.$suggestSolution        = "MDIO0";
 enet_cpsw1.pinmux[0].MDIO.DATA.$suggestSolution   = "PAD_CM";
 enet_cpsw1.pinmux[0].MDIO.CLK.$suggestSolution    = "PAD_CN";
