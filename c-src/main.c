@@ -79,8 +79,6 @@
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
-//#define ENET_TEST
-
 
 
 /* Task related global variables */
@@ -355,13 +353,13 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
+#define ENET_TEST
 #ifdef ENET_TEST
     Drivers_open();
     Board_driversOpen(); 
-    
    gInitTask = xTaskCreateStatic(
             enet_test,   
-            "enet task", 
+            "init task", 
             INIT_TASK_SIZE,
             NULL,           
             INIT_TASK_PRI,  

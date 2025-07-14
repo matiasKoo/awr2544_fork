@@ -4,23 +4,40 @@
 #include <string.h>
 #include "FreeRTOS.h"
 #include "task.h"
-/* lwIP core includes */
-#include "lwip/opt.h"
-#include "lwip/sys.h"
-#include "lwip/tcpip.h"
-#include "lwip/dhcp.h"
-
 #include <kernel/dpl/TaskP.h>
 #include <kernel/dpl/ClockP.h>
-#include <kernel/dpl/ClockP.h>
-#include <networking/enet/utils/include/enet_apputils.h>
-#include <networking/enet/utils/include/enet_board.h>
-#include "ti_board_config.h"
-#include "ti_board_open_close.h"
-#include "ti_drivers_open_close.h"
-#include "ti_enet_config.h"
+#include <kernel/dpl/DebugP.h>
+
 #include "ti_enet_open_close.h"
+#include "ti_enet_config.h"
 #include "ti_enet_lwipif.h"
 
-static const uint8_t BROADCAST_MAC_ADDRESS[ENET_MAC_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+#include <networking/enet/core/include/per/cpsw.h>
 
+#include <networking/enet/utils/include/enet_apputils.h>
+#include <networking/enet/utils/include/enet_board.h>
+#include <networking/enet/core/include/enet.h>
+
+
+
+
+
+void enet_test(void *args){
+    int32_t ret = 0;
+    DebugP_log("Initializing enet\r\n");
+    EnetApp_driverInit();
+
+    DebugP_log("Opening enet\r\n");
+    ret = EnetApp_driverOpen(ENET_CPSW_2G, 0);
+    DebugP_assert(ret == 0);
+
+    DebugP_log("Getting handle...\r\n");
+    Enet_Handle handle = Enet_getHandle(ENET_CPSW_2G, 0);
+    if(handle == NULL){
+        DebugP_logError("Got NULL for handle\r\n");
+    }else{
+        DebugP_log("Handle is %p\r\n", handle);
+    }
+
+    while(1) __asm__ volatile("wfi");
+}
