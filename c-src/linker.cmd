@@ -7,8 +7,7 @@
  *   uses this stack.
  * - After vTaskStartScheduler() each task created in FreeRTOS has its own stack
  */
-//--stack_size=16384
---stack_size=16384
+--stack_size=8192
 /* This is the heap size for malloc() API in NORTOS and FreeRTOS
  * This is also the heap used by pvPortMalloc in FreeRTOS
  */
@@ -66,9 +65,10 @@ SECTIONS
         .bss:    {} palign(8)   /* This is where uninitialized globals go */
         RUN_START(__BSS_START)
         RUN_END(__BSS_END)
-        .sysmem: {} palign(8)   /* This is where the malloc heap goes */
-        .stack:  {} palign(8)   /* This is where the main() stack goes */
-    } > MSS_L2
+    } > SBL_RESERVED_L2_RAM | MSS_L2
+
+    .sysmem: {} palign(8)  > SBL_RESERVED_L2_RAM | MSS_L2 /* This is where the malloc heap goes */
+    .stack:  {} palign(8)  > SBL_RESERVED_L2_RAM | MSS_L2 /* This is where the main() stack goes */
 
     /* This is where the stacks for different R5F modes go */
     GROUP {
@@ -87,7 +87,7 @@ SECTIONS
         .undefinedstack: {. = . + __UNDEFINED_STACK_SIZE;} align(8)
         RUN_START(__UNDEFINED_STACK_START)
         RUN_END(__UNDEFINED_STACK_END)
-    } > MSS_L2
+    } > SBL_RESERVED_L2_RAM | MSS_L2
 
     /* Sections needed for C++ projects */
     GROUP {
@@ -108,6 +108,15 @@ SECTIONS
     /* this is used only when Secure IPC is enabled */
     .bss.sipc_hsm_queue_mem   (NOLOAD) : {} > MAILBOX_HSM
     .bss.sipc_r5f_queue_mem   (NOLOAD) : {} > MAILBOX_R5F
+
+    // For NDK packet memory
+    .bss:ENET_CPPI_DESC        (NOLOAD) {} ALIGN (128) > CPPI_DESC
+
+        .enet_dma_mem{
+        *(*ENET_DMA_PKT_MEMPOOL)
+    } (NOLOAD) {} ALIGN (128) > DSS_L3
+    .bss:UDP_IPERF_SND_BUF  (NOLOAD) {} ALIGN (128) > DSS_L3
+
 }
 
 MEMORY
@@ -115,24 +124,26 @@ MEMORY
     R5F_VECS  : ORIGIN = 0x00000000 , LENGTH = 0x00000040
     R5F_TCMA  : ORIGIN = 0x00000040 , LENGTH = 0x0000FFC0
     R5F_TCMB  : ORIGIN = 0x00080000 , LENGTH = 0x00010000
+    SBL_RESERVED_L2_RAM (RW)   : origin=0x10200000 length=(0x00020000 - 0x00004000)
+
+    /* CPPI descriptor memory */
+    CPPI_DESC : ORIGIN = (0x10220000 - 0x00004000), LENGTH = 0x00004000
 
     /* when using multi-core application's i.e more than one R5F active, make sure
      * this memory does not overlap with other R5F's
      */
-    //MSS_L2     : ORIGIN = 0x10260000 , LENGTH = 0x78000
-    MSS_L2      : ORIGIN = 0x10200000 , LENGTH = 0xCA000
+    MSS_L2      : ORIGIN = (0x102D8000 - 0xB8000) , LENGTH = 0xB8000
 
-    /* This is typically used to hold data IO buffers from accelerators like CSI, HWA */
-    DSS_L3:   ORIGIN = 0x88000000, LENGTH = 0x000F0000
 
     /* shared memories that are used by RTOS/NORTOS cores */
     /* On R5F,
      * - make sure there are MPU entries which maps below regions as non-cache
      */
- //   USER_SHM_MEM            : ORIGIN = 0x102D8000, LENGTH = 0x00004000
-    USER_SHM_MEM            : ORIGIN = 0x10C87000, LENGTH = 0x00004000
-//    LOG_SHM_MEM             : ORIGIN = 0x102DC000, LENGTH = 0x00004000
-    LOG_SHM_MEM             : ORIGIN = 0x10C8B000, LENGTH = 0x00004000
+    USER_SHM_MEM            : ORIGIN = (0x102DC000 - 0x4000), LENGTH = 0x00004000
+    LOG_SHM_MEM             : ORIGIN = (0x102E0000 - 0x4000), LENGTH = 0x00004000
+
+    /* This is typically used to hold data IO buffers from accelerators like CSI, HWA */
+    DSS_L3:   ORIGIN = 0x88000000, LENGTH = 0x000F0000
 
     /* 1st 512 B of DSS mailbox memory and MSS mailbox memory is used for IPC with R4 and should not be used by application */
     /* MSS mailbox memory is used as shared memory, we dont use bottom 32*6 bytes, since its used as SW queue by ipc_notify */
