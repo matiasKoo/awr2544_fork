@@ -348,6 +348,10 @@ void chirp_isr(void *arg){
     SemaphoreP_post(&gAdcSampledSem);
 }
 
+void enet_main(){
+    enet_test(NULL);
+    vTaskDelete(NULL);
+}
 
 int main(void) {
     /* init SOC specific modules */
@@ -358,7 +362,7 @@ int main(void) {
     Drivers_open();
     Board_driversOpen(); 
    gInitTask = xTaskCreateStatic(
-            enet_test,   
+            enet_main,   
             "init task", 
             INIT_TASK_SIZE,
             NULL,           
