@@ -273,6 +273,7 @@ static void App_setupNetif()
 
     DebugP_log("Starting lwIP, local interface IP is not dhcp-enabled\r\n");
     hlwipIfApp = LwipifEnetApp_getHandle();
+    sys_lock_tcpip_core();
     for (uint32_t i = 0U; i < ENET_SYSCFG_NETIF_COUNT; i++)
     {
         /* Open the netif and get it populated*/
@@ -281,6 +282,7 @@ static void App_setupNetif()
         netif_set_link_callback(g_pNetif[i], App_netifLinkChangeCb);
         netif_set_up(g_pNetif[NETIF_INST_ID0 + i]);
     }
+    sys_unlock_tcpip_core();
     LwipifEnetApp_startSchedule(hlwipIfApp, g_pNetif[ENET_SYSCFG_DEFAULT_NETIF_IDX]);
 
 }
@@ -437,7 +439,6 @@ void enet_test(void *args){
     sys_thread_t ret2 = sys_thread_new("tcpinit_thread", AppTcp_simpleclient, &gHostInfo, DEFAULT_THREAD_STACKSIZE, DEFAULT_THREAD_PRIO);
     DebugP_log("ret from thread %d\r\n",ret2);
 
-   // AppTcp_simpleclient(&gHostInfo);
-
-    vTaskDelete(NULL);
+    while(1){ ClockP_sleep(2);}
+    //vTaskDelete(NULL);
 }
