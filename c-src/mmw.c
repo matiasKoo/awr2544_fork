@@ -83,7 +83,7 @@ int32_t mmw_open(MMWave_Handle handle, int32_t *err){
     // only enable 1 lane
     openCfg.laneEnCfg.laneEn = 0b1;
     // and 1 channel
-    openCfg.chCfg.rxChannelEn = 0b1;
+    openCfg.chCfg.rxChannelEn = CFG_OPEN_CHCONF_RXEN_BMASK;
     openCfg.chCfg.txChannelEn = 0b1;
 
     openCfg.chCfg.cascading = 0;
