@@ -162,10 +162,10 @@ static void Appsocket_fillHostSocketInfo(struct App_hostInfo_t* pHostInfo)
     ip_addr_t ipAddr;
     int32_t addr_ok;
     memset(&pHostInfo->socketAddr, 0, sizeof(pHostInfo->socketAddr));
-
+    char *ip = "192.168.1.2";
     struct sockaddr_in*  pAddr = &pHostInfo->socketAddr;
     IP_SET_TYPE_VAL(dstaddr, IPADDR_TYPE_V4);
-    addr_ok = ip4addr_aton(gHostServerIp4, ip_2_ip4(&ipAddr));
+    addr_ok = ip4addr_aton(ip, ip_2_ip4(&ipAddr));
     pAddr->sin_len = sizeof(pHostInfo->socketAddr);
     pAddr->sin_family = AF_INET;
     pAddr->sin_port = PP_HTONS(SOCK_HOST_SERVER_PORT);
@@ -221,12 +221,15 @@ int32_t udp_send_data(void *buff, size_t n){
 
 void AppSocket_showMenu(void)
 {
+    return;
     ip_addr_t ipAddr;
     int32_t addr_ok = 0;
     EnetAppUtils_print(" UDP socket Menu: \r\n");
     // Broadcast for 192.168.1.0/24 
-//    ipAddr.addr = ((192U) | (168U << 8) | (1U << 16) |  (0U << 24)) | (255U << 24);
+    char *ip = "192.168.1.2";
+    ip4addr_aton(ip, ip_2_ip4(&ipAddr));
 
+    return;
     do
     {
         EnetAppUtils_print(" Enter server IPv4 address:(example: 192.168.101.100)\r\n");
