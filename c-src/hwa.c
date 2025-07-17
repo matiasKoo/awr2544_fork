@@ -23,7 +23,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
 		.source =
         {
             .srcAddr = 0,
-            .srcAcnt = 255,
+            .srcAcnt = 512,
             .srcAIdx = 2,
             .srcBcnt = 0,
             .srcBIdx = 0,
@@ -40,7 +40,7 @@ static HWA_ParamConfig HwaParamConfig[1] =
 		.dest =
         {
             .dstAddr = 0x4000,
-            .dstAcnt = 255,
+            .dstAcnt = 512,
             .dstAIdx = 4,
             .dstBIdx = 0,
             .dstRealComplex = HWA_SAMPLES_FORMAT_COMPLEX,

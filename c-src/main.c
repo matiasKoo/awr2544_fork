@@ -162,7 +162,7 @@ static void main_task(void *args){
     DebugP_log("Ready to roll\r\n");
 
     while(1){
-        ClockP_usleep(5000);
+        ClockP_usleep(5);
         if(gState == 0){led_state(0); continue;}
         
         led_state(gState);
@@ -170,7 +170,6 @@ static void main_task(void *args){
         // to give the python script time 
         ClockP_usleep(100*1000);
 
-        // got one, do a measurement
         mmw_start(gMmwHandle, &err);
 
         // sampling done, stop measuring
@@ -189,8 +188,11 @@ static void main_task(void *args){
         ClockP_usleep(50 * 1000);
 
         // write out hwa output to network
-       // uart_dump_samples(hwaout, 256);
-       udp_send_data(hwaout, 1024);
+        // uart_dump_samples(hwaout, 256);
+        udp_send_data(hwaout, 1024);
+        udp_send_data(hwaout+1024, 1024);
+
+
     }
 }
 
@@ -237,7 +239,7 @@ static void init_task(void *args){
     // and EDMA
     DebugP_log("Init edma...\r\n");
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
+    edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, 1024);
 
     // Not that any should happen but disable interrupts here 
     HwiP_disable();
