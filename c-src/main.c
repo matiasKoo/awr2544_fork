@@ -56,14 +56,13 @@
 
 /* Project header files */
 // TODO: might need to rename these as to not conflict with SDK includes
-// but for now enet is the only one that clashes
 #include <mmw.h>
 #include <adcbuf.h>
 #include <edma.h>
 #include <cfg.h>
 #include <gpio.h>
 #include <hwa.h>
-#include <enet_project.h>
+#include <network.h>
 
 /* Task related macros */
 #define EXEC_TASK_PRI   (configMAX_PRIORITIES-1)     // must be higher than INIT_TASK_PRI
@@ -169,7 +168,7 @@ static void main_task(void *args){
         led_state(gState);
 
         // to give the python script time 
-        ClockP_usleep(1000*1000);
+        ClockP_usleep(100*1000);
 
         // got one, do a measurement
         mmw_start(gMmwHandle, &err);
@@ -189,8 +188,9 @@ static void main_task(void *args){
         // but again just sleep a bit to make sure it's done its thing
         ClockP_usleep(50 * 1000);
 
-        // write out hwa output to UART
-        uart_dump_samples(hwaout, 256);
+        // write out hwa output to network
+       // uart_dump_samples(hwaout, 256);
+       udp_send_data(hwaout, 1024);
     }
 }
 
@@ -220,6 +220,9 @@ static void init_task(void *args){
 
     // assume for now that input memory will be at HWA base
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
+
+    DebugP_log("Init network...\r\n");
+    network_init(NULL);
 
     // init adc
     DebugP_log("Init adc...\r\n");
@@ -357,7 +360,7 @@ int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
-#define ENET_TEST
+
 #ifdef ENET_TEST
     Drivers_open();
     Board_driversOpen(); 
