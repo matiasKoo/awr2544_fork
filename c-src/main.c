@@ -74,9 +74,10 @@
 #define INIT_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 /* Project related macros */
-#define NUM_CHIRPS  1
+#define NUM_CHIRPS  32                  // the output must fit in HWA output(32K)
+#define CHIRP_BUFF_CNT 4                // buffer 4 sets of  chirps before sending, come up with a better name for this
 #define SAMPLE_SIZE (sizeof(uint16_t))
-#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
+#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE * NUM_RX_ANTENNAS * CHIRP_BUFF_CNT)
 
 
 
@@ -110,9 +111,6 @@ static void main_task(void*);
 /* Other functions */
 static inline void fail(void);
 
-extern void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/);
-
-
 /* == Global Variables == */
 /* Handles */
 MMWave_Handle gMmwHandle = NULL;
@@ -126,6 +124,8 @@ SemaphoreP_Object gEdmaDoneSem;
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
 static uint32_t gPushButtonBaseAddr = GPIO_PUSH_BUTTON_BASE_ADDR;
+
+static uint8_t gSampleBuff[SAMPLE_BUFF_SIZE] __attribute__((section(".bss.dss_l3")));
 
 
 static inline void fail(void){
@@ -351,29 +351,12 @@ void chirp_isr(void *arg){
     SemaphoreP_post(&gAdcSampledSem);
 }
 
-void enet_main(){
-    enet_test(NULL);
-    vTaskDelete(NULL);
-}
 
 int main(void) {
     /* init SOC specific modules */
     System_init();
     Board_init();
 
-#ifdef ENET_TEST
-    Drivers_open();
-    Board_driversOpen(); 
-   gInitTask = xTaskCreateStatic(
-            enet_main,   
-            "init task", 
-            INIT_TASK_SIZE,
-            NULL,           
-            INIT_TASK_PRI,  
-            gInitTaskStack, 
-            &gInitTaskObj); 
-    configASSERT(gInitTask != NULL);
-#else
     /* Create this at 2nd highest priority to initialize everything
      * the MMWave_execute task must have a higher priority than this */
    gInitTask = xTaskCreateStatic(
@@ -385,7 +368,6 @@ int main(void) {
             gInitTaskStack, 
             &gInitTaskObj); 
     configASSERT(gInitTask != NULL);
-#endif
     vTaskStartScheduler();
 
     DebugP_assertNoLog(0);
