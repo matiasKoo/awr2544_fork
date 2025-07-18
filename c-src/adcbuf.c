@@ -2,7 +2,7 @@
 #include <kernel/dpl/DebugP.h>
 #include <cfg.h>
 
-#define ADCBUF_CHANCONF_OFFSET 512
+#define ADCBUF_CHANCONF_DATASIZE (CFG_PROFILE_NUMADCSAMPLES * sizeof(uint16_t))
 
 
 ADCBuf_Handle adcbuf_init(){
@@ -40,7 +40,7 @@ ADCBuf_Handle adcbuf_init(){
             continue;
         }
         chanconf.channel = i;
-        chanconf.offset = enabledch * ADCBUF_CHANCONF_OFFSET;
+        chanconf.offset = enabledch * ADCBUF_CHANCONF_DATASIZE;
         enabledch++;
         mask = mask << 1U;
 

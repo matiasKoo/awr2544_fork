@@ -74,7 +74,7 @@
 #define INIT_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 /* Project related macros */
-#define NUM_CHIRPS  32                  // the output must fit in HWA output(32K)
+#define NUM_CHIRPS  1                  // the output must fit in HWA output(32K)
 #define CHIRP_BUFF_CNT 4                // buffer 4 sets of  chirps before sending, come up with a better name for this
 #define SAMPLE_SIZE (sizeof(uint16_t))
 #define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE * NUM_RX_ANTENNAS * CHIRP_BUFF_CNT)
@@ -168,7 +168,7 @@ static void main_task(void *args){
         led_state(gState);
 
         // to give the python script time 
-        ClockP_usleep(100*1000);
+        ClockP_usleep(1000*1000);
 
         mmw_start(gMmwHandle, &err);
 
@@ -176,6 +176,7 @@ static void main_task(void *args){
         SemaphoreP_pend(&gAdcSampledSem, SystemP_WAIT_FOREVER);
         MMWave_stop(gMmwHandle, &err);
 
+        continue;
 
         // move the samples to HWA input
         edma_write();
@@ -223,22 +224,26 @@ static void init_task(void *args){
     // assume for now that input memory will be at HWA base
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
 
-    DebugP_log("Init network...\r\n");
-    network_init(NULL);
+ //   DebugP_log("Init network...\r\n");
+//    network_init(NULL);
 
     // init adc
     DebugP_log("Init adc...\r\n");
     gADCBufHandle = adcbuf_init();
     DebugP_assert(gADCBufHandle != NULL);
-
+    for(int i = 0; i < 4; ++i){
+        uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, i, &err);
+        DebugP_log("Adcbuf address for channel %d is %#x\r\n", i, adcaddr);
+    }
+    
     // and mmw
     DebugP_log("Init mmw...\r\n");
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
 
+
     // and EDMA
     DebugP_log("Init edma...\r\n");
-    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
     edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, 1024);
 
     // Not that any should happen but disable interrupts here 
