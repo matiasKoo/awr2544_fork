@@ -74,11 +74,10 @@
 #define INIT_TASK_SIZE  (4096U/sizeof(configSTACK_DEPTH_TYPE))
 
 /* Project related macros */
-#define NUM_CHIRPS  32                  // the output must fit in HWA output(32K)
-#define CHIRP_BUFF_CNT 4                // buffer 4 sets of  chirps before sending, come up with a better name for this
+#define CHIRP_BUFF_CNT 4                // how many sets of CFG_ADCBUF_PINGPONG_THRESHOLD (usually 1) chirps to store 
 #define SAMPLE_SIZE (sizeof(uint16_t))
-#define SAMPLE_BUFF_SIZE (NUM_CHIRPS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE * NUM_RX_ANTENNAS * CHIRP_BUFF_CNT)
-
+#define SAMPLE_BUFF_SIZE (CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE * NUM_RX_ANTENNAS * CHIRP_BUFF_CNT * CFG_ADCBUF_PINGPONG_THRESHOLD)
+#define CHIRP_DATASIZE (NUM_RX_ANTENNAS * CFG_PROFILE_NUMADCSAMPLES * SAMPLE_SIZE)
 
 
 /* Task related global variables */
@@ -110,6 +109,8 @@ static void main_task(void*);
 
 /* Other functions */
 static inline void fail(void);
+
+extern void uart_dump_samples(void*, size_t);
 
 /* == Global Variables == */
 /* Handles */
@@ -162,15 +163,14 @@ static void main_task(void *args){
     DebugP_log("Ready to roll\r\n");
 
     while(1){
-        ClockP_usleep(5000);
+        ClockP_usleep(5);
         if(gState == 0){led_state(0); continue;}
         
         led_state(gState);
 
         // to give the python script time 
-        ClockP_usleep(100*1000);
+        ClockP_usleep(200*1000);
 
-        // got one, do a measurement
         mmw_start(gMmwHandle, &err);
 
         // sampling done, stop measuring
@@ -186,11 +186,14 @@ static void main_task(void *args){
 
         // TODO: same thing here, the HWA should have be able to generate an interrupt when done
         // but again just sleep a bit to make sure it's done its thing
-        ClockP_usleep(50 * 1000);
+        ClockP_usleep(5 * 100);
 
         // write out hwa output to network
-       // uart_dump_samples(hwaout, 256);
-       udp_send_data(hwaout, 1024);
+        for(int i = 0; i < 4; ++i){
+            udp_send_data(hwaout + i * 1024, 1024);
+        }
+
+
     }
 }
 
@@ -220,7 +223,7 @@ static void init_task(void *args){
 
     // assume for now that input memory will be at HWA base
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
-
+    DebugP_log("HWA address is %#x\r\n",hwaaddr);
     DebugP_log("Init network...\r\n");
     network_init(NULL);
 
@@ -228,16 +231,22 @@ static void init_task(void *args){
     DebugP_log("Init adc...\r\n");
     gADCBufHandle = adcbuf_init();
     DebugP_assert(gADCBufHandle != NULL);
+    for(int i = 0; i < 4; ++i){
+        uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, i, &err);
+        DebugP_log("Adcbuf address for channel %d is %#x\r\n", i, adcaddr);
+    }
+    
+    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
 
     // and mmw
     DebugP_log("Init mmw...\r\n");
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
 
+
     // and EDMA
     DebugP_log("Init edma...\r\n");
-    uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
-    edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, SAMPLE_BUFF_SIZE);
+    edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, CHIRP_DATASIZE);
 
     // Not that any should happen but disable interrupts here 
     HwiP_disable();

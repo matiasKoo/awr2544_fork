@@ -10,11 +10,7 @@
 // Writes out samples in a CSV format to the serial console
 // buff should point to memory location (Typically HWA output register in this case)
 // n    - number of samples 
-// TODO: actually implement the following
-// real - 0 = complex, 1 = real
-// sign - 0 = unsigned, 1 = signed
-// bits - 0 = 16b, 1 = 32b
-void uart_dump_samples(void *buff, size_t n/*, bool real, bool sign, bool bits*/){
+void uart_dump_samples(void *buff, size_t n){
     int32_t transferOk;
     UART_Transaction transaction;
     size_t charlen;
