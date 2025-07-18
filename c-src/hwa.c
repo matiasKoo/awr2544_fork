@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <drivers/hwa.h>
 #include "ti_drivers_config.h"
+#include <cfg.h>
 
 static HWA_CommonConfig HwaCommonConfig[1] =
 {
@@ -23,10 +24,10 @@ static HWA_ParamConfig HwaParamConfig[1] =
 		.source =
         {
             .srcAddr = 0,
-            .srcAcnt = 512,
-            .srcAIdx = 2,
-            .srcBcnt = 0,
-            .srcBIdx = 0,
+            .srcAcnt = (CFG_PROFILE_NUMADCSAMPLES - 1),
+            .srcAIdx = sizeof(uint16_t),
+            .srcBcnt = (NUM_RX_ANTENNAS - 1),
+            .srcBIdx = 512,
             .srcAcircShift = 0,
             .srcAcircShiftWrap = 0,
             .srcCircShiftWrap3 = HWA_FEATURE_BIT_DISABLE,
@@ -40,9 +41,9 @@ static HWA_ParamConfig HwaParamConfig[1] =
 		.dest =
         {
             .dstAddr = 0x4000,
-            .dstAcnt = 512,
+            .dstAcnt = 255,
             .dstAIdx = 4,
-            .dstBIdx = 0,
+            .dstBIdx = 1024,
             .dstRealComplex = HWA_SAMPLES_FORMAT_COMPLEX,
             .dstWidth = HWA_SAMPLES_WIDTH_16BIT,
             .dstSign = HWA_SAMPLES_SIGNED,
