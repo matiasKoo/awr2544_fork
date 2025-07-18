@@ -12,8 +12,8 @@ ADCBuf_Handle adcbuf_init(){
     DebugP_log("Initializing ADC...\r\n");
 
     ADCBuf_Params_init(&ADCBufParams);
-    ADCBufParams.chirpThresholdPing = 1;
-    ADCBufParams.chirpThresholdPong = 1;
+    ADCBufParams.chirpThresholdPing = CFG_ADCBUF_PINGPONG_THRESHOLD;
+    ADCBufParams.chirpThresholdPong = CFG_ADCBUF_PINGPONG_THRESHOLD;
     ADCBufParams.continousMode = 0;
     ADCBufParams.source = ADCBUF_SOURCE_DFE;
 
