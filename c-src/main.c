@@ -260,7 +260,7 @@ static void init_task(void *args){
 
     // and EDMA
     DebugP_log("Init edma...\r\n");
-    edma_configure(gEdmaHandle[0],&edma_callback, (void*)hwaaddr, (void*)adcaddr, CHIRP_DATASIZE);
+    edma_configure(gEdmaHandle[0],&edma_callback, (void*)hwaaddr, (void*)adcaddr, CHIRP_DATASIZE, 1, 1);
     DebugP_log("Done.\r\n");
 
 

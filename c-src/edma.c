@@ -27,7 +27,9 @@ void edma_write(){
 }
 
 
-void edma_configure(EDMA_Handle handle, void *cb, void *dst, void *src, size_t n){
+// TODO: use a struct here for configuring things
+// the parameter list might grow even larger so it will be a lot simpler to pass in a `struct edmaCfg`
+void edma_configure(EDMA_Handle handle, void *cb, void *dst, void *src, uint16_t acnt, uint16_t bcnt, uint16_t ccnt){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -60,9 +62,9 @@ void edma_configure(EDMA_Handle handle, void *cb, void *dst, void *src, size_t n
     EDMA_ccPaRAMEntry_init(&edmaparam);
     edmaparam.srcAddr       = (uint32_t) SOC_virtToPhy(srcp);
     edmaparam.destAddr      = (uint32_t) SOC_virtToPhy(dstp);
-    edmaparam.aCnt          = (uint16_t) n;     // (assuming this works,) do everything in one dimension
-    edmaparam.bCnt          = (uint16_t) 1U;    
-    edmaparam.cCnt          = (uint16_t) 1U;    // in one block
+    edmaparam.aCnt          = (uint16_t) acnt;     
+    edmaparam.bCnt          = (uint16_t) bcnt;    
+    edmaparam.cCnt          = (uint16_t) ccnt;
     edmaparam.bCntReload    = 0U;
     edmaparam.srcBIdx       = 0U;
     edmaparam.destBIdx      = 0U;
@@ -77,7 +79,7 @@ void edma_configure(EDMA_Handle handle, void *cb, void *dst, void *src, size_t n
     gIntrObj[region].tccNum = tcc;
     gIntrObj[region].cbFxn = cb;
     gIntrObj[region].appData = (void*)0;
-    ret = EDMA_registerIntr(handle, &gIntrObj);
+    ret = EDMA_registerIntr(handle, &gIntrObj[region]);
     DebugP_assert(ret == 0);
     EDMA_enableEvtIntrRegion(base, region, ch);
     EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_EVENT);
