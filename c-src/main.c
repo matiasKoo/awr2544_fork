@@ -121,6 +121,7 @@ MMWave_ProfileHandle gMmwProfiles[MMWAVE_MAX_PROFILE];
 SemaphoreP_Object gAdcSampledSem;
 SemaphoreP_Object gBtnPressedSem;
 SemaphoreP_Object gEdmaDoneSem;
+SemaphoreP_Object gHwaDoneSem;
 
 /* Rest of them */
 volatile bool gState = 0; /* Tracks the current (intended) state of the RSS */
@@ -138,6 +139,11 @@ static inline void fail(void){
 
 void edma_callback(Edma_IntrHandle handle, void *args){
     SemaphoreP_post(&gEdmaDoneSem);
+}
+
+
+void hwa_callback(uint32_t threadIdx, void *arg){
+    SemaphoreP_post(&gHwaDoneSem);
 }
 
 
@@ -183,10 +189,7 @@ static void main_task(void *args){
         SemaphoreP_pend(&gEdmaDoneSem, SystemP_WAIT_FOREVER);
 
         hwa_run(gHwaHandle[0]);
-
-        // TODO: same thing here, the HWA should have be able to generate an interrupt when done
-        // but again just sleep a bit to make sure it's done its thing
-        ClockP_usleep(5 * 100);
+        SemaphoreP_pend(&gHwaDoneSem, SystemP_WAIT_FOREVER);
 
         // write out hwa output to network
         for(int i = 0; i < 4; ++i){
@@ -221,11 +224,18 @@ static void init_task(void *args){
 
     DebugP_log("Init task launched\r\n");
 
+    DebugP_log("Init HWA...\r\n");
     // assume for now that input memory will be at HWA base
     uint32_t hwaaddr = (uint32_t)SOC_virtToPhy((void*)hwa_getaddr(gHwaHandle[0]));
+    hwa_init(gHwaHandle[0], &hwa_callback);
     DebugP_log("HWA address is %#x\r\n",hwaaddr);
+    DebugP_log("Done.\r\n");
+
+
     DebugP_log("Init network...\r\n");
     network_init(NULL);
+    DebugP_log("Done.\r\n");
+
 
     // init adc
     DebugP_log("Init adc...\r\n");
@@ -235,6 +245,8 @@ static void init_task(void *args){
         uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, i, &err);
         DebugP_log("Adcbuf address for channel %d is %#x\r\n", i, adcaddr);
     }
+    DebugP_log("Done.\r\n");
+
     
     uint32_t adcaddr = (uint32_t)ADCBuf_getChanBufAddr(gADCBufHandle, 0, &err);
 
@@ -242,11 +254,16 @@ static void init_task(void *args){
     DebugP_log("Init mmw...\r\n");
     gMmwHandle = mmw_init(&err);
     DebugP_assert(gMmwHandle != NULL);
+    DebugP_log("Done.\r\n");
+
 
 
     // and EDMA
     DebugP_log("Init edma...\r\n");
     edma_configure(&edma_callback, (void*)hwaaddr, (void*)adcaddr, CHIRP_DATASIZE);
+    DebugP_log("Done.\r\n");
+
+
 
     // Not that any should happen but disable interrupts here 
     HwiP_disable();
@@ -275,7 +292,10 @@ static void init_task(void *args){
     // Edma done semaphore
     ret = SemaphoreP_constructBinary(&gEdmaDoneSem, 0);
     DebugP_assert(ret == 0);
-    
+
+    ret = SemaphoreP_constructBinary(&gHwaDoneSem, 0);
+    DebugP_assert(ret == 0);
+
 
     DebugP_log("Synchronizing...\r\n");
 
@@ -303,6 +323,7 @@ static void init_task(void *args){
         &gExecTaskObj); /*  pointer to statically allocated task object memory */
     configASSERT(gExecTask != NULL);
 
+    DebugP_log("Configuring mmw...\r\n");
     ret = mmw_open(gMmwHandle, &err);
     if(ret != 0){
         mmw_printerr("Failed to open device", err);

@@ -96,12 +96,14 @@ uint32_t hwa_getaddr(HWA_Handle handle){
     return meminfo.baseAddress;
 }
 
-
-void hwa_run(HWA_Handle handle){
+void hwa_init(HWA_Handle handle,  HWA_Done_IntHandlerFuncPTR cb){
     HWA_configCommon(handle, &HwaCommonConfig[0]);
     HWA_configParamSet(handle, 0, &HwaParamConfig[0], NULL);
-    HWA_reset(handle);
+    HWA_enableDoneInterrupt(handle, 0,  cb, NULL);
     HWA_enable(handle, 1U);
+}
 
+void hwa_run(HWA_Handle handle){
+    HWA_reset(handle);
     HWA_setSoftwareTrigger(handle, HWA_TRIG_MODE_SOFTWARE);
 }
