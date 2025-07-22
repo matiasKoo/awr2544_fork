@@ -25,11 +25,6 @@ static void *gDstBuff;
 static size_t gSize;
 
 
-static void edma_cb(Edma_IntrHandle intrHandle, void *args){
-
-}
-
-
 void edma_write(){
     // Write 1 to EDMA_TPCC_ESR to trigger a transfer
     // TODO: probably replace this with the proper function?
