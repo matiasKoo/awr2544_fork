@@ -17,6 +17,7 @@ const crc        = scripting.addModule("/drivers/crc/crc", {}, false);
 const crc1       = crc.addInstance();
 const edma       = scripting.addModule("/drivers/edma/edma", {}, false);
 const edma1      = edma.addInstance();
+const edma2      = edma.addInstance();
 const gpio       = scripting.addModule("/drivers/gpio/gpio", {}, false);
 const gpio1      = gpio.addInstance();
 const gpio2      = gpio.addInstance();
@@ -46,6 +47,16 @@ adcbuf1.$name = "CONFIG_ADCBUF0";
 cbuff1.$name = "CONFIG_CBUFF0";
 
 crc1.$name = "CONFIG_CRC0";
+
+edma2.$name                        = "CONFIG_EDMA1";
+edma2.instance                     = "EDMA_RSS_A";
+edma2.initParamSet                 = "TRUE";
+edma2.edmaRmDmaCh[0].$name         = "CONFIG_EDMA_RM5";
+edma2.edmaRmDmaCh[0].resourceType  = scripting.forceWrite("ownDmaCh");
+edma2.edmaRmQdmaCh[0].$name        = "CONFIG_EDMA_RM6";
+edma2.edmaRmTcc[0].$name           = "CONFIG_EDMA_RM7";
+edma2.edmaRmParam[0].$name         = "CONFIG_EDMA_RM8";
+edma2.edmaRmReservedDmaCh[0].$name = "CONFIG_EDMA_RM9";
 
 gpio1.$name                = "GPIO_PUSH_BUTTON";
 gpio1.trigType             = "RISE_EDGE";
@@ -88,9 +99,9 @@ cbuff1.edmaConfig                  = edma1;
 edma1.regionId                     = 0;
 edma1.initParamSet                 = "TRUE";
 edma1.edmaRmDmaCh[0].$name         = "CONFIG_EDMA_RM0";
-edma1.edmaRmQdmaCh[0].$name        = "CONFIG_EDMA_RM1";
 edma1.edmaRmTcc[0].$name           = "CONFIG_EDMA_RM2";
 edma1.edmaRmParam[0].$name         = "CONFIG_EDMA_RM3";
+edma1.edmaRmQdmaCh[0].$name        = "CONFIG_EDMA_RM1";
 edma1.edmaRmReservedDmaCh[0].$name = "CONFIG_EDMA_RM4";
 
 mpu_armv71.$name        = "CONFIG_MPU_REGION0";
