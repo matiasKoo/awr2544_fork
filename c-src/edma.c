@@ -16,13 +16,7 @@
 #include <edma.h>
 
 
-static Edma_IntrObject gIntrObj;
-static uint32_t gBaseAddr;
-static uint32_t gRegion;
-static uint32_t gCh;
-static void *gSrcBuff;
-static void *gDstBuff;
-static size_t gSize;
+static Edma_IntrObject gIntrObj[CONFIG_EDMA_NUM_INSTANCES];
 
 
 void edma_write(){
@@ -33,7 +27,7 @@ void edma_write(){
 }
 
 
-void edma_configure(void *cb, void *dst, void *src, size_t n){
+void edma_configure(EDMA_Handle handle, void *cb, void *dst, void *src, size_t n){
     uint32_t base = 0;
     uint32_t region = 0;
     uint32_t ch = 0;
@@ -42,28 +36,25 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     int32_t ret = 0;
     uint8_t *srcp = (uint8_t*)src;
     uint8_t *dstp = (uint8_t*)dst;
-    gSrcBuff = src;
-    gDstBuff = dst;
-    gSize = n;
 
     EDMACCPaRAMEntry edmaparam;
 
-    base = EDMA_getBaseAddr(gEdmaHandle[0]);
+    base = EDMA_getBaseAddr(handle);
     DebugP_assert(base != 0);
 
-    region = EDMA_getRegionId(gEdmaHandle[0]);
+    region = EDMA_getRegionId(handle);
     DebugP_assert(region < SOC_EDMA_NUM_REGIONS);
 
     ch = EDMA_RESOURCE_ALLOC_ANY;
-    ret = EDMA_allocDmaChannel(gEdmaHandle[0], &ch);
+    ret = EDMA_allocDmaChannel(handle, &ch);
     DebugP_assert(ret == 0);
 
     tcc = EDMA_RESOURCE_ALLOC_ANY;
-    ret = EDMA_allocTcc(gEdmaHandle[0], &tcc);
+    ret = EDMA_allocTcc(handle, &tcc);
     DebugP_assert(ret == 0);
 
     param = EDMA_RESOURCE_ALLOC_ANY;
-    ret = EDMA_allocParam(gEdmaHandle[0], &param);
+    ret = EDMA_allocParam(handle, &param);
 
     EDMA_configureChannelRegion(base, region, EDMA_CHANNEL_TYPE_DMA, ch, tcc , param, 0);
     EDMA_ccPaRAMEntry_init(&edmaparam);
@@ -83,16 +74,13 @@ void edma_configure(void *cb, void *dst, void *src, size_t n){
     edmaparam.opt |= (EDMA_OPT_TCINTEN_MASK | EDMA_OPT_ITCINTEN_MASK | ((((uint32_t)tcc)<< EDMA_OPT_TCC_SHIFT)& EDMA_OPT_TCC_MASK));
     EDMA_setPaRAM(base, param, &edmaparam);
 
-    gBaseAddr = base;
-    gCh = ch;
-    gRegion = 0;
-    gIntrObj.tccNum = tcc;
-    gIntrObj.cbFxn = cb;
-    gIntrObj.appData = (void*)0;
-    ret = EDMA_registerIntr(gEdmaHandle[0], &gIntrObj);
-        DebugP_assert(ret == 0);
+    gIntrObj[region].tccNum = tcc;
+    gIntrObj[region].cbFxn = cb;
+    gIntrObj[region].appData = (void*)0;
+    ret = EDMA_registerIntr(handle, &gIntrObj);
+    DebugP_assert(ret == 0);
     EDMA_enableEvtIntrRegion(base, region, ch);
-    EDMA_enableTransferRegion(gBaseAddr, gRegion, gCh, EDMA_TRIG_MODE_EVENT);
+    EDMA_enableTransferRegion(base, region, ch, EDMA_TRIG_MODE_EVENT);
     DebugP_log("Edma initialized\r\n");
 }
 
